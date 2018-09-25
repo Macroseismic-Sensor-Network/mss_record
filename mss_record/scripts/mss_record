@@ -28,7 +28,7 @@ import logging
 import logging.handlers
 import os
 
-import core.recorder
+import mss_record.core
 
 
 def get_logger_handler(filename):
@@ -94,10 +94,10 @@ if __name__ == '__main__':
 
 
     # Create the recorder instance.
-    recorder = core.recorder.Recorder(network = config['station']['network'],
-                                      station = config['station']['station_code'],
-                                      location = config['station']['location'],
-                                      channels = config['station']['channels'])
+    recorder = mss_record.core.recorder.Recorder(network = config['station']['network'],
+                                        station = config['station']['station_code'],
+                                        location = config['station']['location'],
+                                        channels = config['station']['channels'])
 
     # Check the system.
     # - working NTP
