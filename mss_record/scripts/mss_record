@@ -28,7 +28,7 @@ import logging
 import logging.handlers
 import os
 
-import mss_record.core
+import mss_record.core.recorder
 
 
 def get_logger_handler(filename):
