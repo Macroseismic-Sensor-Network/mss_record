@@ -28,6 +28,8 @@ import logging
 import logging.handlers
 import os
 
+import core.recorder
+
 
 def get_logger_handler(filename):
     ''' Create a logging format handler.
@@ -50,6 +52,22 @@ def load_configuration(filename):
     config['log']['dir'] = parser.get('log', 'log_dir').strip()
     config['log']['filename'] = parser.get('log', 'log_filename').strip()
     config['log']['level'] = parser.get('log', 'log_level').strip()
+
+    config['station'] = {}
+    config['station']['network'] = parser.get('station', 'network').strip()
+    config['station']['station_code'] = parser.get('station', 'station_code').strip()
+    config['station']['location'] = parser.get('station', 'location').strip()
+    channel_list = []
+    cur_channel = parser.get('station', 'channel_1').strip()
+    if cur_channel:
+        channel_list.append(cur_channel)
+    cur_channel = parser.get('station', 'channel_2').strip()
+    if cur_channel:
+        channel_list.append(cur_channel)
+    cur_channel = parser.get('station', 'channel_3').strip()
+    if cur_channel:
+        channel_list.append(cur_channel)
+    config['station']['channels'] = channel_list
 
     return config
 
@@ -74,6 +92,12 @@ if __name__ == '__main__':
     logger.setLevel(config['log']['level'])
     logger.addHandler(get_logger_handler(log_filename))
 
+
+    # Create the recorder instance.
+    recorder = core.recorder.Recorder(network = config['station']['network'],
+                                      station = config['station']['station_code'],
+                                      location = config['station']['location'],
+                                      channels = config['station']['channels'])
 
     # Check the system.
     # - working NTP
