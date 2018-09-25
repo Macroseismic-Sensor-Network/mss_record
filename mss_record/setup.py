@@ -25,6 +25,9 @@ setuptools.setup(name = 'mss_record',
                  keywords          = __keywords__,
                  platforms         = 'any',
                  scripts           = scripts,
-                 packages          = setuptools.find_packages(),
+                 package_dir       = {'': 'lib'},
+                 packages          = ['mss_record',
+                                      'mss_record.core',
+                                      'mss_record.adc'],
                  install_requires  = ['Adafruit-GPIO>=1.0.0'])
 
