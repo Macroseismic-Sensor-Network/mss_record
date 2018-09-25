@@ -26,5 +26,5 @@ setuptools.setup(name = 'mss_record',
                  platforms         = 'any',
                  scripts           = scripts,
                  packages          = setuptools.find_packages(),
-                 install_requires  = ['Adafruit-GPIO>=0.6.5'])
+                 install_requires  = ['Adafruit-GPIO>=1.0.0'])
 
