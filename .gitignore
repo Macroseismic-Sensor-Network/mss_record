@@ -1,0 +1,36 @@
+# Ignore compiled python files.
+*.pyc
+
+# Ignore the tmp folder.
+/tmp/
+
+# Ignore the data folder.
+/data/
+
+# Ignore the build folder.
+build/
+
+# Ignore the dist folder.
+/dist/
+
+# Ignore the test_results folder.
+/test_results/
+
+# Ignore the coverage folder
+.coverage
+
+# Ignore the MANIFEST file.
+MANIFEST
+
+# Ignore the .swp file
+*.swp
+
+# Ignore build files.
+*.o
+*.so
+*.dll
+
+# Ignore the egg installation folder.
+psysmon.egg-info/
+
+

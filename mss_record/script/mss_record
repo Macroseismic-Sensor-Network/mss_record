@@ -1,0 +1,92 @@
+#! /usr/bin/env python3
+
+# -*- coding: utf-8 -*-
+# LICENSE
+#
+# This file is part of mss_record.
+#
+# If you use mss_record in any program or publication, please inform and
+# acknowledge its author Stefan Mertl (stefan@mertl-research.at).
+#
+# mss_record is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+import argparse
+import configparser
+import logging
+import logging.handlers
+import os
+
+
+def get_logger_handler(filename):
+    ''' Create a logging format handler.
+    '''
+    ch = logging.handlers.RotatingFileHandler(filename, maxBytes = 1000000, backupCount = 10)
+    formatter = logging.Formatter("#LOG# - %(asctime)s - %(process)d - %(threadName)s - %(levelname)s - %(name)s: %(message)s")
+    ch.setFormatter(formatter)
+
+    return ch
+
+
+def load_configuration(filename):
+    ''' Load the configuration from a file.
+    '''
+    parser = configparser.ConfigParser()
+    parser.read(filename)
+
+    config = {}
+    config['log'] = {}
+    config['log']['dir'] = parser.get('log', 'log_dir').strip()
+    config['log']['filename'] = parser.get('log', 'log_filename').strip()
+    config['log']['level'] = parser.get('log', 'log_level').strip()
+
+    return config
+
+
+if __name__ == '__main__':
+
+    # Specify the configuration file using argpars.
+    parser = argparse.ArgumentParser(description = 'mss_record')
+
+    parser.add_argument('config_file', help = 'The path to the configuration file.',
+                        type = str)
+    args = parser.parse_args()
+
+    # Read the INI formatted configuration file using configparser.
+    config = load_configuration(args.config_file)
+
+    # Setup a rotating file logger.
+    log_filename = os.path.join(config['log']['dir'], config['log']['filename'])
+    if not os.path.exists(config['log']['dir']):
+        os.makedirs(config['log']['dir'])
+    logger = logging.getLogger('mss_record')
+    logger.setLevel(config['log']['level'])
+    logger.addHandler(get_logger_handler(log_filename))
+
+
+    # Check the system.
+    # - working NTP
+    # - available ADCs
+    # - access to destination folder for miniseed files
+    # - internet connection
+
+    # Interrupt response handler für die ADC erstellen.
+    # Die ADCs mit 860 sps laufen lassen.
+    # Eine schnelle I2C clock verwenden.
+
+    # Zeitdauer testen 
+
+
+
+
