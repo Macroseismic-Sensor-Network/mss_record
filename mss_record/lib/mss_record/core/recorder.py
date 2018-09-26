@@ -57,4 +57,4 @@ class Recorder:
         proc = subprocess.Popen(['ntpq', '-p'], stdout=subprocess.PIPE)
         stdout_value = proc.coomunicate()[0]
 
-        print stdout_value
+        print(stdout_value)
