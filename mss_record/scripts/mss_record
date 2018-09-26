@@ -27,6 +27,7 @@ import configparser
 import logging
 import logging.handlers
 import os
+import sys
 
 import mss_record.core.recorder
 
@@ -100,8 +101,11 @@ if __name__ == '__main__':
                                         channels = config['station']['channels'])
 
     # Check the system.
-    recorder.check_ntp()
-    # - working NTP
+    working_servers = recorder.check_ntp()
+    if not working_servers:
+        logger.error("No working NTP servers found, exiting.")
+        sys.exit()
+
     # - available ADCs
     # - access to destination folder for miniseed files
     # - internet connection

@@ -22,6 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+import re
 import subprocess
 import sys
 
@@ -54,7 +55,34 @@ class Recorder:
     def check_ntp(self):
         ''' Check for a valid NTP connection.
         '''
-        proc = subprocess.Popen(['ntpq', '-p'], stdout=subprocess.PIPE)
-        stdout_value = proc.coomunicate()[0]
+        self.logger.debug('Checking the NTP.')
+        proc = subprocess.Popen(['ntpq', '-np'], stdout=subprocess.PIPE)
+        stdout_value = proc.communicate()[0].decode('utf-8')
 
-        print(stdout_value)
+        if stdout_value.lower().startswith("no association id's returned"):
+            self.logger.error("NTP is not running. ntpd response: %s.", stdout_value)
+            return []
+
+        # Search for the header line.
+        header_token = "===\n"
+        header_end = stdout_value.find(header_token) + len(header_token)
+
+        if not header_end:
+            self.logger.error("NTP seems to be running, but no expected result was returned by ntpq: %s", stdout_value)
+            return []
+
+        self.logger.info("NTP is running.\n%s", stdout_value)
+
+        payload = stdout_value[header_end:]
+        working_server = []
+        for cur_line in payload.splitlines():
+            cur_data = re.split(' +', cur_line)
+            if cur_line.startswith("*") or cur_line.startswith("+"):
+                working_server.append(cur_data)
+
+        if not working_server:
+            self.logger.warning("No working servers found.")
+
+        return working_server
+
+
