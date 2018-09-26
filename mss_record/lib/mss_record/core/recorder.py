@@ -22,6 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+import subprocess
 import sys
 
 class Recorder:
@@ -48,3 +49,12 @@ class Recorder:
         if len(channels) > 3:
             self.logger.error("No more than 3 channels are allowed.")
             sys.exit()
+
+
+    def check_ntp(self):
+        ''' Check for a valid NTP connection.
+        '''
+        proc = subprocess.Popen(['ntpq', '-p'], stdout=subprocess.PIPE)
+        stdout_value = proc.coomunicate()[0]
+
+        print stdout_value

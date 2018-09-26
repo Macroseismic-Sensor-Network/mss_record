@@ -100,6 +100,7 @@ if __name__ == '__main__':
                                         channels = config['station']['channels'])
 
     # Check the system.
+    recorder.check_ntp()
     # - working NTP
     # - available ADCs
     # - access to destination folder for miniseed files
