@@ -93,12 +93,13 @@ if __name__ == '__main__':
     logger.setLevel(config['log']['level'])
     logger.addHandler(get_logger_handler(log_filename))
 
+    logger.info("Starting mss record with configuration: %s.", config)
+
 
     # Create the recorder instance.
     recorder = mss_record.core.recorder.Recorder(network = config['station']['network'],
                                         station = config['station']['station_code'],
-                                        location = config['station']['location'],
-                                        channels = config['station']['channels'])
+                                        location = config['station']['location'])
 
     # Check the system.
     working_servers = recorder.check_ntp()
@@ -106,7 +107,6 @@ if __name__ == '__main__':
         logger.error("No working NTP servers found, exiting.")
         sys.exit()
 
-    # - available ADCs
     # - access to destination folder for miniseed files
     # - internet connection
 
