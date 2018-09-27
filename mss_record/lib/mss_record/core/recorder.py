@@ -24,13 +24,14 @@
 import logging
 import re
 import subprocess
-import sys
+
+import mss_record.core.channel
 
 class Recorder:
     ''' The recorder class.
 
     '''
-    def __init__(self, network, station, location, channels):
+    def __init__(self, network, station, location):
         ''' Initialization of the instance.
 
         '''
@@ -46,16 +47,20 @@ class Recorder:
         # A 2 characters long string.
         self.location = location
 
-        # The channels of the recorder.
-        if len(channels) > 3:
-            self.logger.error("No more than 3 channels are allowed.")
-            sys.exit()
+        # The I2C addresses of the ADCs.
+        self.adc_addresses = {'H1': 0x4a,
+                              'H2': 0x49,
+                              'Z':  0x48}
+
+        # Initialize the channels.
+        self.channels = {}
+        self.init_channels();
 
 
     def check_ntp(self):
         ''' Check for a valid NTP connection.
         '''
-        self.logger.debug('Checking the NTP.')
+        self.logger.info('Checking the NTP.')
         proc = subprocess.Popen(['ntpq', '-np'], stdout=subprocess.PIPE)
         stdout_value = proc.communicate()[0].decode('utf-8')
 
@@ -84,5 +89,29 @@ class Recorder:
             self.logger.warning("No working servers found.")
 
         return working_server
+
+
+    def init_channels(self):
+        ''' Initialize the channels and check for existing ADCs.
+        '''
+        for cur_name in sorted(self.adc_addresses.keys()):
+            cur_addr = self.adc_addresses[cur_name]
+            self.logger.info("Checking channel %s with ADC address %s.", cur_name, hex(cur_addr))
+            cur_channel = mss_record.core.channel.Channel(name = cur_name,
+                                                          adc_address = cur_addr)
+
+            if(cur_channel.check_adc()):
+                self.logger.info("Found a working ADC.")
+                self.logger.info("Configuring the ADC for continuous mode.")
+                success = cur_channel.start_adc()
+                if not success:
+                    self.logger.error("ADC couldn't be configured. Ignoring channel %s.", cur_name)
+
+                self.channels[cur_name] = cur_channel
+                self.logger.info("Initialization of channel %s successfull.", cur_name)
+            else:
+                self.logger.warning("ADC not found. Ingnoring channel %s.", cur_name)
+
+
 
 
