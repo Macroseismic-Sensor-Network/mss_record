@@ -45,6 +45,7 @@ ADS111x_POINTER_LOW_THRESHOLD  = 0x02
 ADS111x_POINTER_HIGH_THRESHOLD = 0x03
 ADS111x_CONFIG_OS_SINGLE       = 0x8000
 ADS111x_CONFIG_MUX_OFFSET      = 12
+ADS111x_CONFIG_DEFAULT         = 0x0583
 # Choose a gain of 1 for reading voltages from 0 to 4.09V.
 # Or pick a different gain to change the range of voltages that are read:
 #  - 2/3 = +/-6.144V
@@ -95,12 +96,8 @@ class ADS111x(object):
             import Adafruit_GPIO.I2C as I2C
             i2c = I2C
         self._device = i2c.get_i2c_device(address, **kwargs)
+        self._config = ADS111x_CONFIG_DEFAULT
 
-    def _data_rate_default(self):
-        """Retrieve the default data rate for this ADC (in samples per second).
-        Should be implemented by subclasses.
-        """
-        raise NotImplementedError('Subclasses must implement _data_rate_default!')
 
     def _data_rate_config(self, data_rate):
         """Subclasses should override this function and return a 16-bit value
@@ -116,6 +113,7 @@ class ADS111x(object):
         byte of a conversion result and returns a signed integer value.
         """
         raise NotImplementedError('Subclass must implement _conversion_value function!')
+
 
     def _read(self, mux, gain, data_rate, mode):
         """Perform an ADC read with the provided mux, gain, SAMPLE_RATE, and mode
@@ -146,176 +144,63 @@ class ADS111x(object):
         result = self._device.readList(ADS111x_POINTER_CONVERSION, 2)
         return self._conversion_value(result[1], result[0])
 
-    def _read_comparator(self, mux, gain, data_rate, mode, high_threshold,
-                         low_threshold, active_low, traditional, latching,
-                         num_readings):
-        """Perform an ADC read with the provided mux, gain, SAMPLE_RATE, and mode
-        values and with the comparator enabled as specified.  Returns the signed
-        integer result of the read.
+
+    def configure(self, mux, gain, data_rate, mode):
+        """ Configure the ADC.
         """
-        assert num_readings == 1 or num_readings == 2 or num_readings == 4, 'Num readings must be 1, 2, or 4!'
-        # Set high and low threshold register values.
-        self._device.writeList(ADS111x_POINTER_HIGH_THRESHOLD, [(high_threshold >> 8) & 0xFF, high_threshold & 0xFF])
-        self._device.writeList(ADS111x_POINTER_LOW_THRESHOLD, [(low_threshold >> 8) & 0xFF, low_threshold & 0xFF])
-        # Now build up the appropriate config register value.
-        config = ADS111x_CONFIG_OS_SINGLE  # Go out of power-down mode for conversion.
+        cur_config = 0x00
         # Specify mux value.
-        config |= (mux & 0x07) << ADS111x_CONFIG_MUX_OFFSET
+        cur_config |= (mux & 0x07) << ADS111x_CONFIG_MUX_OFFSET
         # Validate the passed in gain and then set it in the config.
         if gain not in ADS111x_CONFIG_GAIN:
             raise ValueError('Gain must be one of: 2/3, 1, 2, 4, 8, 16')
-        config |= ADS111x_CONFIG_GAIN[gain]
+        cur_config |= ADS111x_CONFIG_GAIN[gain]
         # Set the mode (continuous or single shot).
-        config |= mode
-        # Get the default data rate if none is specified (default differs between
-        # ADS1015 and ADS1115).
-        if data_rate is None:
-            data_rate = self._data_rate_default()
-        # Set the data rate (this is controlled by the subclass as it differs
-        # between ADS1015 and ADS1115).
-        config |= self._data_rate_config(data_rate)
-        # Enable window mode if required.
-        if not traditional:
-            config |= ADS111x_CONFIG_COMP_WINDOW
-        # Enable active high mode if required.
-        if not active_low:
-            config |= ADS111x_CONFIG_COMP_ACTIVE_HIGH
-        # Enable latching mode if required.
-        if latching:
-            config |= ADS111x_CONFIG_COMP_LATCHING
-        # Set number of comparator hits before alerting.
-        config |= ADS111x_CONFIG_COMP_QUE[num_readings]
+        cur_config |= mode
+        # Set the data rate (this is controlled by the subclass)
+        cur_config |= self._data_rate_config(data_rate)
+        cur_config |= ADS111x_CONFIG_COMP_QUE_DISABLE  # Disble comparator mode.
         # Send the config value to start the ADC conversion.
         # Explicitly break the 16-bit value down to a big endian pair of bytes.
-        self._device.writeList(ADS111x_POINTER_CONFIG, [(config >> 8) & 0xFF, config & 0xFF])
-        # Wait for the ADC sample to finish based on the sample rate plus a
-        # small offset to be sure (0.1 millisecond).
-        time.sleep(1.0/data_rate+0.0001)
-        # Retrieve the result.
-        result = self._device.readList(ADS111x_POINTER_CONVERSION, 2)
-        return self._conversion_value(result[1], result[0])
+        self._device.writeList(ADS111x_POINTER_CONFIG, [(cur_config >> 8) & 0xFF, cur_config & 0xFF])
 
-    def read_adc(self, channel, gain=1, data_rate=None):
-        """Read a single ADC channel and return the ADC value as a signed integer
-        result.  Channel must be a value within 0-3.
-        """
-        assert 0 <= channel <= 3, 'Channel must be a value within 0-3!'
-        # Perform a single shot read and set the mux value to the channel plus
-        # the highest bit (bit 3) set.
-        return self._read(channel + 0x04, gain, data_rate, ADS111x_CONFIG_MODE_SINGLE)
+        self._config = self.read_config()
+        # Clear the OS bit.
+        self._config &= ~(0x1 << 16)
+        if self._config == cur_config:
+            return True
+        else:
+            return False
 
-    def read_adc_difference(self, differential, gain=1, data_rate=None):
-        """Read the difference between two ADC channels and return the ADC value
-        as a signed integer result.  Differential must be one of:
-          - 0 = Channel 0 minus channel 1
-          - 1 = Channel 0 minus channel 3
-          - 2 = Channel 1 minus channel 3
-          - 3 = Channel 2 minus channel 3
-        For 1114 it must be 0!
-        """
-        assert 0 <= differential <= 3, 'Differential must be a value within 0-3!'
-        # Perform a single shot read using the provided differential value
-        # as the mux value (which will enable differential mode).
-        return self._read(differential, gain, data_rate, ADS111x_CONFIG_MODE_SINGLE)
 
-    def start_adc(self, channel, gain=1, data_rate=None):
-        """Start continuous ADC conversions on the specified channel (0-3). Will
-        return an initial conversion result, then call the get_last_result()
-        function to read the most recent conversion result. Call stop_adc() to
-        stop conversions.
-        """
-        assert 0 <= channel <= 3, 'Channel must be a value within 0-3!'
-        # Start continuous reads and set the mux value to the channel plus
-        # the highest bit (bit 3) set.
-        return self._read(channel + 0x04, gain, data_rate, ADS111x_CONFIG_MODE_CONTINUOUS)
 
-    def start_adc_difference(self, differential, gain=1, data_rate=None):
-        """Start continuous ADC conversions between two ADC channels. Differential
-        must be one of:
-          - 0 = Channel 0 minus channel 1
-          - 1 = Channel 0 minus channel 3
-          - 2 = Channel 1 minus channel 3
-          - 3 = Channel 2 minus channel 3
-        For 1114 it must be 0!
-        Will return an initial conversion result, then call the get_last_result()
-        function continuously to read the most recent conversion result.  Call
-        stop_adc() to stop conversions.
+    def enable_conversion_ready_pin(self):
+        """ Set the configuration activate the RDY pin.
         """
-        assert 0 <= differential <= 3, 'Differential must be a value within 0-3!'
-        # Perform a single shot read using the provided differential value
-        # as the mux value (which will enable differential mode).
-        return self._read(differential, gain, data_rate, ADS111x_CONFIG_MODE_CONTINUOUS)
+        # Set the MSB in the high and low threshold.
+        self._device.write16(ADS111x_POINTER_HIGH_THRESHOLD, 0x8000)
+        self._device.write16(ADS111x_POINTER_LOW_THRESHOLD, 0x0)
 
-    def start_adc_comparator(self, channel, high_threshold, low_threshold,
-                             gain=1, data_rate=None, active_low=True,
-                             traditional=True, latching=False, num_readings=1):
-        """Start continuous ADC conversions on the specified channel (0-3) with
-        the comparator enabled.  When enabled the comparator to will check if
-        the ADC value is within the high_threshold & low_threshold value (both
-        should be signed 16-bit integers) and trigger the ALERT pin.  The
-        behavior can be controlled by the following parameters:
-          - active_low: Boolean that indicates if ALERT is pulled low or high
-                        when active/triggered.  Default is true, active low.
-          - traditional: Boolean that indicates if the comparator is in traditional
-                         mode where it fires when the value is within the threshold,
-                         or in window mode where it fires when the value is _outside_
-                         the threshold range.  Default is true, traditional mode.
-          - latching: Boolean that indicates if the alert should be held until
-                      get_last_result() is called to read the value and clear
-                      the alert.  Default is false, non-latching.
-          - num_readings: The number of readings that match the comparator before
-                          triggering the alert.  Can be 1, 2, or 4.  Default is 1.
-        Will return an initial conversion result, then call the get_last_result()
-        function continuously to read the most recent conversion result.  Call
-        stop_adc() to stop conversions.
-        """
-        assert 0 <= channel <= 3, 'Channel must be a value within 0-3!'
-        # Start continuous reads with comparator and set the mux value to the
-        # channel plus the highest bit (bit 3) set.
-        return self._read_comparator(channel + 0x04, gain, data_rate,
-                                     ADS111x_CONFIG_MODE_CONTINUOUS,
-                                     high_threshold, low_threshold, active_low,
-                                     traditional, latching, num_readings)
+        # Set the comp_que in the config register to 00.
+        cur_config = self._config
+        cur_config &= ~(0x1)
+        cur_config &= ~(0x1 << 1)
+        self._device.writeList(ADS111x_POINTER_CONFIG, [(cur_config >> 8) & 0xFF, cur_config & 0xFF])
+        self._config = self.read_config()
+        self._config &= ~(0x1 << 16)
+        if (self._config & 0x7FFF) == (cur_config & 0x7FFF):
+            return True
+        else:
+            return False
 
-    def start_adc_difference_comparator(self, differential, high_threshold, low_threshold,
-                                        gain=1, data_rate=None, active_low=True,
-                                        traditional=True, latching=False, num_readings=1):
-        """Start continuous ADC conversions between two channels with
-        the comparator enabled.  See start_adc_difference for valid differential
-        parameter values and their meaning.  When enabled the comparator to will
-        check if the ADC value is within the high_threshold & low_threshold value
-        (both should be signed 16-bit integers) and trigger the ALERT pin.  The
-        behavior can be controlled by the following parameters:
-          - active_low: Boolean that indicates if ALERT is pulled low or high
-                        when active/triggered.  Default is true, active low.
-          - traditional: Boolean that indicates if the comparator is in traditional
-                         mode where it fires when the value is within the threshold,
-                         or in window mode where it fires when the value is _outside_
-                         the threshold range.  Default is true, traditional mode.
-          - latching: Boolean that indicates if the alert should be held until
-                      get_last_result() is called to read the value and clear
-                      the alert.  Default is false, non-latching.
-          - num_readings: The number of readings that match the comparator before
-                          triggering the alert.  Can be 1, 2, or 4.  Default is 1.
-        Will return an initial conversion result, then call the get_last_result()
-        function continuously to read the most recent conversion result.  Call
-        stop_adc() to stop conversions.
-        """
-        assert 0 <= differential <= 3, 'Differential must be a value within 0-3!'
-        # Start continuous reads with comparator and set the mux value to the
-        # channel plus the highest bit (bit 3) set.
-        return self._read_comparator(differential, gain, data_rate,
-                                     ADS111x_CONFIG_MODE_CONTINUOUS,
-                                     high_threshold, low_threshold, active_low,
-                                     traditional, latching, num_readings)
+
 
     def stop_adc(self):
         """Stop all continuous ADC conversions (either normal or difference mode).
         """
-        # Set the config register to its default value of 0x8583 to stop
-        # continuous conversions.
-        config = 0x8583
+        config = ADS111x_CONFIG_DEFAULT
         self._device.writeList(ADS111x_POINTER_CONFIG, [(config >> 8) & 0xFF, config & 0xFF])
+
 
     def get_last_result(self):
         """Read the last conversion result when in continuous conversion mode.
@@ -327,28 +212,14 @@ class ADS111x(object):
         return self._conversion_value(result[1], result[0])
 
 
-class ADS1115(ADS111x):
-    """ADS1115 16-bit analog to digital converter instance."""
+    def read_config(self):
+        """ Read the configuration register.
+        """
+        result = self._device.readList(ADS111x_POINTER_CONFIG, 2)
+        result = ((result[0] & 0xFF) << 8) | (result[1] & 0xFF)
+        return result
 
-    def __init__(self, *args, **kwargs):
-        super(ADS1115, self).__init__(*args, **kwargs)
 
-    def _data_rate_default(self):
-        # Default from datasheet page 16, config register DR bit default.
-        return 128
-
-    def _data_rate_config(self, data_rate):
-        if data_rate not in ADS111x_CONFIG_DR:
-            raise ValueError('Data rate must be one of: 8, 16, 32, 64, 128, 250, 475, 860')
-        return ADS111x_CONFIG_DR[data_rate]
-
-    def _conversion_value(self, low, high):
-        # Convert to 16-bit signed value.
-        value = ((high & 0xFF) << 8) | (low & 0xFF)
-        # Check for sign bit and turn into a negative value if set.
-        if value & 0x8000 != 0:
-            value -= 1 << 16
-        return value
 
 
 class ADS1114(ADS111x):
@@ -357,10 +228,6 @@ class ADS1114(ADS111x):
     def __init__(self, *args, **kwargs):
         super(ADS1114, self).__init__(*args, **kwargs)
 
-    def _data_rate_default(self):
-        # Default from datasheet page 16, config register DR bit default.
-        return 128
-
     def _data_rate_config(self, data_rate):
         if data_rate not in ADS111x_CONFIG_DR:
             raise ValueError('Data rate must be one of: 8, 16, 32, 64, 128, 250, 475, 860')
@@ -373,3 +240,16 @@ class ADS1114(ADS111x):
         if value & 0x8000 != 0:
             value -= 1 << 16
         return value
+
+    def configure(self, gain = 1, data_rate = 128, mode = 'singleshot'):
+        ''' Start the ADC in continuous differential mode.
+
+        The ADS1114 is a single channel ADC, therefore, the differential option is fixed to 0.
+        '''
+        if mode == 'singleshot':
+            adc_mode = ADS111x_CONFIG_MODE_CONTINUOUS
+        elif mode == 'continuous':
+            adc_mode = ADS111x_CONFIG_MODE_SINGLE
+        else:
+            raise ValueError("Mode has to be singleshot or continuous.")
+        super(ADS1114, self).configure(mux = 0, gain = gain, data_rate = data_rate, mode = adc_mode)
