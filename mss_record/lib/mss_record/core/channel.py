@@ -30,7 +30,7 @@ class Channel:
 
     '''
 
-    def __init__(self, adc_address, name, sps = 860, gain = 1):
+    def __init__(self, adc_address, name, sps = 128, gain = 1):
         ''' Initialization of the instance.
 
         '''
@@ -99,7 +99,10 @@ class Channel:
 
 
         # Enable the conversion ready pin.
+        self.logger.debug("Enabling the conversion ready pin.")
         success = self.adc.enable_conversion_ready_pin()
+        adc_config = self.adc.read_config()
+        self.logger.debug("adc_config %s.", hex(adc_config))
         if not success:
             self.logger.error("Couldn't enable the conversion ready pin.")
 
