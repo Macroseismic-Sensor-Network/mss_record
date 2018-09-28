@@ -178,8 +178,10 @@ class ADS111x(object):
         """ Set the configuration activate the RDY pin.
         """
         # Set the MSB in the high and low threshold.
-        self._device.write16(ADS111x_POINTER_HIGH_THRESHOLD, 0x8000)
-        self._device.write16(ADS111x_POINTER_LOW_THRESHOLD, 0x0)
+        high_threshold = 0x8000
+        low_threshold = 0x0
+        self._device.writeList(ADS111x_POINTER_HIGH_THRESHOLD, [(high_threshold >> 8) & 0xFF, high_threshold & 0xFF])
+        self._device.writeList(ADS111x_POINTER_LOW_THRESHOLD, [(low_threshold >> 8) & 0xFF, low_threshold & 0xFF])
 
         # Set the comp_que in the config register to 00.
         cur_config = self._config
@@ -247,9 +249,9 @@ class ADS1114(ADS111x):
         The ADS1114 is a single channel ADC, therefore, the differential option is fixed to 0.
         '''
         if mode == 'singleshot':
-            adc_mode = ADS111x_CONFIG_MODE_CONTINUOUS
-        elif mode == 'continuous':
             adc_mode = ADS111x_CONFIG_MODE_SINGLE
+        elif mode == 'continuous':
+            adc_mode = ADS111x_CONFIG_MODE_CONTINUOUS
         else:
             raise ValueError("Mode has to be singleshot or continuous.")
         super(ADS1114, self).configure(mux = 0, gain = gain, data_rate = data_rate, mode = adc_mode)
