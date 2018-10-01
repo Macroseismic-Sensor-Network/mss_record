@@ -24,6 +24,11 @@
 import logging
 import re
 import subprocess
+import time
+import traceback
+
+#import apscheduler.schedulers.background as background_scheduler
+import obspy
 
 import mss_record.core.channel
 
@@ -53,6 +58,7 @@ class Recorder:
         self.adc_config = {'001': {'i2c_address': 0x4a, 'rdy_gpio': 22},
                            '002': {'i2c_address': 0x49, 'rdy_gpio': 27},
                            '003': {'i2c_address': 0x48, 'rdy_gpio': 17}}
+
 
         # Initialize the channels.
         self.channels = {}
@@ -103,7 +109,9 @@ class Recorder:
             self.logger.info("Checking channel %s with ADC address %s.", cur_name, hex(cur_addr))
             cur_channel = mss_record.core.channel.Channel(name = cur_name,
                                                           adc_address = cur_addr,
-                                                          rdy_gpio = cur_rdy_gpio)
+                                                          rdy_gpio = cur_rdy_gpio,
+                                                          sps = 128,
+                                                          gain = 4)
 
             if(cur_channel.check_adc()):
                 self.logger.info("Found a working ADC.")
@@ -116,6 +124,53 @@ class Recorder:
                 self.logger.info("Initialization of channel %s successfull.", cur_name)
             else:
                 self.logger.warning("ADC not found. Ingnoring channel %s.", cur_name)
+
+
+
+    def run(self):
+        ''' Start the data collection.
+        '''
+        '''
+        scheduler = background_scheduler.BackgroundScheduler()
+        start_time = obspy.UTCDateTime()
+        start_time += 2
+        start_time.microsecond = 0
+        self.logger.info('Job start time: %s.', start_time)
+        scheduler.add_job(self.collect_data,
+                          trigger = 'interval',
+                          seconds = 1,
+                          max_instances = 1,
+                          next_run_time = start_time.datetime)
+        scheduler.start()
+        '''
+        self.pps(self.collect_data)
+
+
+    def collect_data(self):
+        ''' Collect the data from the channels.
+        '''
+        timestamp = obspy.UTCDateTime()
+        self.logger.info('Collecting data. timestamp: %s', timestamp)
+
+
+    def pps(self, callback):
+        now = obspy.UTCDateTime()
+        delay_to_next_second = (1e6 - now.microsecond) / 1e6
+        time.sleep(delay_to_next_second)
+        while True:
+            try:
+                callback()
+            except Exception:
+                traceback.print_exc()
+                # in production code you might want to have this instead of course:
+                # logger.exception("Problem while executing repetitive task.")
+
+            # skip tasks if we are behind schedule:
+            #next_time += (time.time() - next_time) // delay * delay + delay
+            now = obspy.UTCDateTime()
+            delay_to_next_second = (1e6 - now.microsecond) / 1e6
+            time.sleep(delay_to_next_second)
+
 
 
 
