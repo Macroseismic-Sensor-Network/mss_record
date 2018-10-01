@@ -137,6 +137,9 @@ class Channel:
         ''' Handle the ADC drdy interrupt.
         '''
         cur_sample = self.adc.get_last_result()
+        # TODO: Acquire a mutex from the recorder for the I2C communication
+        # bus to avoid multiple i2c requests on the bus from the individual
+        # channels.
         self.data_mutex.acquire()
         self.data.append(cur_sample)
         self.data_mutex.release()
