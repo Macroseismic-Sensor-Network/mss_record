@@ -58,17 +58,6 @@ def load_configuration(filename):
     config['station']['network'] = parser.get('station', 'network').strip()
     config['station']['station_code'] = parser.get('station', 'station_code').strip()
     config['station']['location'] = parser.get('station', 'location').strip()
-    channel_list = []
-    cur_channel = parser.get('station', 'channel_1').strip()
-    if cur_channel:
-        channel_list.append(cur_channel)
-    cur_channel = parser.get('station', 'channel_2').strip()
-    if cur_channel:
-        channel_list.append(cur_channel)
-    cur_channel = parser.get('station', 'channel_3').strip()
-    if cur_channel:
-        channel_list.append(cur_channel)
-    config['station']['channels'] = channel_list
 
     return config
 
@@ -115,6 +104,8 @@ if __name__ == '__main__':
     # Eine schnelle I2C clock verwenden.
 
     # Zeitdauer testen 
+
+    recorder.run()
 
 
 
