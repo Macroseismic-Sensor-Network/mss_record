@@ -47,10 +47,12 @@ class Recorder:
         # A 2 characters long string.
         self.location = location
 
-        # The I2C addresses of the ADCs.
-        self.adc_addresses = {'H1': 0x4a,
-                              'H2': 0x49,
-                              'Z':  0x48}
+        # The communication configuration of the ADCS.
+        # The i2c addresses and the raspberry pins to which the RDY pins of the ADCs are connected.
+        # The pin numbers are the numbers of the Broadcom SOC (GPIO.BCM mode). 
+        self.adc_config = {'001': {'i2c_address': 0x4a, 'rdy_gpio': 22},
+                           '002': {'i2c_address': 0x49, 'rdy_gpio': 27},
+                           '003': {'i2c_address': 0x48, 'rdy_gpio': 17}}
 
         # Initialize the channels.
         self.channels = {}
@@ -94,11 +96,14 @@ class Recorder:
     def init_channels(self):
         ''' Initialize the channels and check for existing ADCs.
         '''
-        for cur_name in sorted(self.adc_addresses.keys()):
-            cur_addr = self.adc_addresses[cur_name]
+        for cur_name in sorted(self.adc_config.keys()):
+            cur_config = self.adc_config[cur_name]
+            cur_addr = cur_config['i2c_address']
+            cur_rdy_gpio = cur_config['rdy_gpio']
             self.logger.info("Checking channel %s with ADC address %s.", cur_name, hex(cur_addr))
             cur_channel = mss_record.core.channel.Channel(name = cur_name,
-                                                          adc_address = cur_addr)
+                                                          adc_address = cur_addr,
+                                                          rdy_gpio = cur_rdy_gpio)
 
             if(cur_channel.check_adc()):
                 self.logger.info("Found a working ADC.")

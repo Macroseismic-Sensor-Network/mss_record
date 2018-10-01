@@ -30,7 +30,7 @@ class Channel:
 
     '''
 
-    def __init__(self, adc_address, name, sps = 128, gain = 1):
+    def __init__(self, name, adc_address, rdy_gpio, sps = 128, gain = 1):
         ''' Initialization of the instance.
 
         '''
@@ -43,6 +43,10 @@ class Channel:
 
         # The I2C address of the related ADC.
         self.adc_address = adc_address
+
+        # The pin of the Raspberry to which the ADC RDY pin is connected to.
+        # The pin number is in BCM mode.
+        self.rdy_gpio = rdy_gpio
 
         # The sampling rate of the channel.
         self.sps = sps
