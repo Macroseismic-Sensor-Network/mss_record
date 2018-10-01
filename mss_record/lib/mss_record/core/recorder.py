@@ -143,6 +143,11 @@ class Recorder:
                           next_run_time = start_time.datetime)
         scheduler.start()
         '''
+        for cur_name in sorted(self.channels.keys()):
+            cur_channel = self.channels[cur_name]
+            self.logger.info("Starting channel %s.", cur_name)
+            cur_channel.run()
+
         self.pps(self.collect_data)
 
 
@@ -151,6 +156,14 @@ class Recorder:
         '''
         timestamp = obspy.UTCDateTime()
         self.logger.info('Collecting data. timestamp: %s', timestamp)
+        for cur_name in sorted(self.channels.keys()):
+            cur_channel = self.channels[cur_name]
+            cur_data = cur_channel.get_data()
+            self.logger.info("Collected data from channel %s.", cur_channel.name)
+            self.logger.info("Data length: %d.", len(cur_data))
+
+        self.logger.info('Finished collecting data.')
+
 
 
     def pps(self, callback):
@@ -160,8 +173,8 @@ class Recorder:
         while True:
             try:
                 callback()
-            except Exception:
-                traceback.print_exc()
+            except Exception as e:
+                self.logger.exception(e)
                 # in production code you might want to have this instead of course:
                 # logger.exception("Problem while executing repetitive task.")
 
