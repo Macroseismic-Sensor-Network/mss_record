@@ -21,6 +21,9 @@
 
 
 import logging
+import threading
+
+import RPi.GPIO as gpio
 
 import mss_record.adc.ads111x
 
@@ -56,6 +59,17 @@ class Channel:
 
         # The ADC device.
         self.adc = mss_record.adc.ads111x.ADS1114(address = self.adc_address)
+
+        # The samples collected from the ADC.
+        self.data = []
+
+        # The mutex lock for the data.
+        self.data_mutex = threading.Lock()
+
+        # Configure the GPIO.
+        gpio.setmode(gpio.BCM)
+        gpio.setup(self.rdy_gpio, gpio.IN)
+        gpio.add_event_detect(self.rdy_gpio, gpio.RISING, callback = self.drdy_callback)
 
 
     def check_adc(self):
@@ -111,5 +125,16 @@ class Channel:
             self.logger.error("Couldn't enable the conversion ready pin.")
 
         return True
+
+
+    def drdy_callback(self, channel):
+        ''' Handle the ADC drdy interrupt.
+        '''
+        cur_sample = self.adc.get_last_result()
+        self.data_mutex.acquire()
+        self.data.append(cur_sample)
+        self.data_mutex.release()
+
+
 
 
