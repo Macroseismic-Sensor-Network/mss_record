@@ -66,10 +66,6 @@ class Channel:
         # The mutex lock for the data.
         self.data_mutex = threading.Lock()
 
-        # Configure the GPIO.
-        gpio.setmode(gpio.BCM)
-        gpio.setup(self.rdy_gpio, gpio.IN)
-        gpio.add_event_detect(self.rdy_gpio, gpio.RISING, callback = self.drdy_callback)
 
 
     def check_adc(self):
@@ -127,6 +123,16 @@ class Channel:
         return True
 
 
+    def run(self):
+        ''' Start the data collection of the channel.
+        '''
+        # Configure the GPIO.
+        gpio.setmode(gpio.BCM)
+        gpio.setup(self.rdy_gpio, gpio.IN)
+        gpio.add_event_detect(self.rdy_gpio, gpio.RISING, callback = self.drdy_callback)
+        self.logger.info("Added the DRDY event handler for channel %s.", self.name)
+
+
     def drdy_callback(self, channel):
         ''' Handle the ADC drdy interrupt.
         '''
@@ -134,6 +140,16 @@ class Channel:
         self.data_mutex.acquire()
         self.data.append(cur_sample)
         self.data_mutex.release()
+
+
+    def get_data(self):
+        ''' Return the data and clear the data array.
+        '''
+        self.data_mutex.acquire()
+        cur_data = self.data.copy()
+        self.data = []
+        self.data_mutex.release()
+        return cur_data
 
 
 
