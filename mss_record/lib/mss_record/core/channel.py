@@ -24,6 +24,8 @@ import logging
 import threading
 import time
 
+import numpy as np
+import obspy
 import RPi.GPIO as gpio
 
 import mss_record.adc.ads111x
@@ -69,6 +71,8 @@ class Channel:
 
         # The mutex lock for the data.
         self.data_mutex = threading.Lock()
+
+        self.drdy = False
 
 
     def check_adc(self):
@@ -139,27 +143,52 @@ class Channel:
     def drdy_callback(self, channel):
         ''' Handle the ADC drdy interrupt.
         '''
-        #start = time.time()
+        cur_timestamp = obspy.UTCDateTime()
+        start = time.time()
 
+        # TODO: Add a check against filling up the self.data list in case, that
+        # the get_data method is not called for some time.
         self.i2c_mutex.acquire()
         cur_sample = self.adc.get_last_result()
         self.i2c_mutex.release()
+
         self.data_mutex.acquire()
-        self.data.append(cur_sample)
+        self.data.append((cur_timestamp, cur_sample))
         self.data_mutex.release()
 
-        #end = time.time()
-        #self.logger.info('drdy dt: %f', end - start)
+        end = time.time()
+        self.logger.info('drdy dt: %f', end - start)
+        self.logger.info("cur_timestamp: %s", cur_timestamp)
 
 
-    def get_data(self):
+    def get_data(self, start_time, end_time):
         ''' Return the data and clear the data array.
         '''
+        start = time.time()
         self.data_mutex.acquire()
         cur_data = self.data.copy()
-        self.data = []
         self.data_mutex.release()
-        return cur_data
+        end = time.time()
+        dt_1 = end - start
+        self.logger.info('get_data dt_1: %f', dt_1)
+        ret_data = [x for x in cur_data if x[0] >= start_time and x[0] < end_time]
+
+        if ret_data:
+            del_ind = len(ret_data)
+            start = time.time()
+            self.data_mutex.acquire()
+            self.data = self.data[del_ind:]
+            self.data_mutex.release()
+            end = time.time()
+            dt_2 = end - start
+
+        self.logger.info('get_data dt_2: %f', dt_2)
+
+        #self.data_mutex.acquire()
+        #self.logger.info('self.data: %s', self.data)
+        #self.data_mutex.release()
+
+        return ret_data
 
 
 

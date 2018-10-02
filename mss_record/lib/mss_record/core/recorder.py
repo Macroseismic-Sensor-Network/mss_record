@@ -22,13 +22,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+import os
 import re
 import subprocess
 import threading
 import time
 
 #import apscheduler.schedulers.background as background_scheduler
+import numpy as np
 import obspy
+import scipy as sp
+import scipy.signal
 
 import mss_record.core.channel
 
@@ -52,6 +56,15 @@ class Recorder:
         # A 2 characters long string.
         self.location = location
 
+        # The general sampling rate of the recorder.
+        self.sps = 100.
+
+        # The interval in full seconds to write the miniseed file.
+        self.write_interval = 10
+
+        # The obspy data stream.
+        self.stream = obspy.core.Stream()
+
         # Mutex used for I2C communication.
         self.i2c_mutex = threading.Lock()
 
@@ -66,6 +79,7 @@ class Recorder:
 
         # Initialize the channels.
         self.channels = {}
+        self.channel_stats = {}
         self.init_channels();
 
 
@@ -116,7 +130,7 @@ class Recorder:
                                                           rdy_gpio = cur_rdy_gpio,
                                                           i2c_mutex = self.i2c_mutex,
                                                           sps = 128,
-                                                          gain = 4)
+                                                          gain = 8)
 
             if(cur_channel.check_adc()):
                 self.logger.info("Found a working ADC.")
@@ -126,6 +140,16 @@ class Recorder:
                     self.logger.error("ADC couldn't be configured. Ignoring channel %s.", cur_name)
 
                 self.channels[cur_name] = cur_channel
+
+                # Create the obspy trace stats for the channel.
+                cur_stats = obspy.core.Stats()
+                cur_stats.network = self.network
+                cur_stats.station = self.station
+                cur_stats.location = self.location
+                cur_stats.sampling_rate = self.sps
+                cur_stats.channel = cur_channel.name
+                self.channel_stats[cur_name] = cur_stats
+
                 self.logger.info("Initialization of channel %s successfull.", cur_name)
             else:
                 self.logger.warning("ADC not found. Ingnoring channel %s.", cur_name)
@@ -148,6 +172,11 @@ class Recorder:
                           next_run_time = start_time.datetime)
         scheduler.start()
         '''
+
+        # Wait for the next full second, than start the channels.
+        now = obspy.UTCDateTime()
+        delay_to_next_second = (1e6 - now.microsecond) / 1e6
+        time.sleep(delay_to_next_second)
         for cur_name in sorted(self.channels.keys()):
             cur_channel = self.channels[cur_name]
             self.logger.info("Starting channel %s.", cur_name)
@@ -156,18 +185,72 @@ class Recorder:
         self.pps(self.collect_data)
 
 
+
     def collect_data(self):
         ''' Collect the data from the channels.
         '''
         timestamp = obspy.UTCDateTime()
         self.logger.info('Collecting data. timestamp: %s', timestamp)
+
+        request_start = timestamp - 1
+        request_start.microsecond = 0
+        request_end = request_start + 1
+
+        #ms_delay = np.floor(timestamp.microsecond / 1000)
+        #samples_to_interpolate = int(self.sps - int(np.floor(ms_delay / (1/self.sps * 1000))))
+        #self.logger.info("samples_to_interpolate: %d", samples_to_interpolate)
+
+        # Adjust the timestamp.
+        #ms_start = ms_delay - (ms_delay % ((1/self.sps) * 1000))
+        #timestamp.microsecond = int(ms_start * 1000)
+
         for cur_name in sorted(self.channels.keys()):
             cur_channel = self.channels[cur_name]
-            cur_data = cur_channel.get_data()
-            self.logger.info("Collected data from channel %s.", cur_channel.name)
-            self.logger.info("Data length: %d.", len(cur_data))
+            cur_data = cur_channel.get_data(start_time = request_start,
+                                            end_time = request_end)
+            self.logger.info("get_data finised.")
+            return
+            if cur_data:
+                cur_data = [x[1] for x in cur_data]
+                self.logger.info("Collected data from channel %s.", cur_channel.name)
+                self.logger.info("Data length: %d.", len(cur_data))
+                if (len(cur_data) > (cur_channel.sps - 10)) and (len(cur_data) < (cur_channel.sps + 10)):
+                    cur_data = sp.signal.resample(cur_data, int(self.sps))
+                    cur_trace = obspy.core.Trace(data = cur_data)
+                    cur_trace.stats.network = self.network
+                    cur_trace.stats.station = self.station
+                    cur_trace.stats.location = self.location
+                    cur_trace.stats.channel = cur_channel.name
+                    cur_trace.stats.sampling_rate = self.sps
+                    cur_trace.stats.starttime = request_start
+                    self.logger.info(cur_trace)
+                    self.stream.append(cur_trace)
+                else:
+                    self.logger.error("The retrieved number of samples doesn't match the expected value.")
+
+        self.write_counter += 1
+
+        if self.write_counter >= self.write_interval:
+            data_dir = '/home/mss/mseeds'
+            self.stream.merge()
+            self.logger.info('stream: %s.', self.stream)
+            for cur_trace in self.stream:
+                cur_filename = cur_trace.id.replace('.','_') + '_' + cur_trace.stats.starttime.isoformat().replace(':','') + '.msd'
+                cur_filepath = os.path.join(data_dir, cur_filename)
+                cur_trace.write(cur_filepath,
+                                format = "MSEED",
+                                reclen = 512,
+                                encodeing = 'STEIM2',
+                                flush = True)
+            self.stream = obspy.core.Stream()
+            self.logger.info('stream after write: %s.', self.stream)
+            self.write_counter = 0
+
+
+        # TODO: Remove old data files from the data_dir.
 
         self.logger.info('Finished collecting data.')
+
 
 
 
@@ -175,6 +258,10 @@ class Recorder:
         now = obspy.UTCDateTime()
         delay_to_next_second = (1e6 - now.microsecond) / 1e6
         time.sleep(delay_to_next_second)
+
+        self.write_interval = int(self.write_interval)
+        self.write_counter = 0
+
         while True:
             try:
                 callback()
