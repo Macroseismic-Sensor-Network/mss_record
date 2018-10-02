@@ -22,6 +22,7 @@
 
 import logging
 import threading
+import time
 
 import RPi.GPIO as gpio
 
@@ -33,7 +34,7 @@ class Channel:
 
     '''
 
-    def __init__(self, name, adc_address, rdy_gpio, sps = 128, gain = 1):
+    def __init__(self, name, adc_address, rdy_gpio, i2c_mutex, sps = 128, gain = 1):
         ''' Initialization of the instance.
 
         '''
@@ -63,9 +64,11 @@ class Channel:
         # The samples collected from the ADC.
         self.data = []
 
+        # Mutex used for I2C communication.
+        self.i2c_mutex = i2c_mutex
+
         # The mutex lock for the data.
         self.data_mutex = threading.Lock()
-
 
 
     def check_adc(self):
@@ -136,13 +139,17 @@ class Channel:
     def drdy_callback(self, channel):
         ''' Handle the ADC drdy interrupt.
         '''
+        #start = time.time()
+
+        self.i2c_mutex.acquire()
         cur_sample = self.adc.get_last_result()
-        # TODO: Acquire a mutex from the recorder for the I2C communication
-        # bus to avoid multiple i2c requests on the bus from the individual
-        # channels.
+        self.i2c_mutex.release()
         self.data_mutex.acquire()
         self.data.append(cur_sample)
         self.data_mutex.release()
+
+        #end = time.time()
+        #self.logger.info('drdy dt: %f', end - start)
 
 
     def get_data(self):

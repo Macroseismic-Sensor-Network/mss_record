@@ -24,8 +24,8 @@
 import logging
 import re
 import subprocess
+import threading
 import time
-import traceback
 
 #import apscheduler.schedulers.background as background_scheduler
 import obspy
@@ -52,12 +52,16 @@ class Recorder:
         # A 2 characters long string.
         self.location = location
 
+        # Mutex used for I2C communication.
+        self.i2c_mutex = threading.Lock()
+
         # The communication configuration of the ADCS.
         # The i2c addresses and the raspberry pins to which the RDY pins of the ADCs are connected.
         # The pin numbers are the numbers of the Broadcom SOC (GPIO.BCM mode). 
         self.adc_config = {'001': {'i2c_address': 0x4a, 'rdy_gpio': 22},
                            '002': {'i2c_address': 0x49, 'rdy_gpio': 27},
                            '003': {'i2c_address': 0x48, 'rdy_gpio': 17}}
+
 
 
         # Initialize the channels.
@@ -110,6 +114,7 @@ class Recorder:
             cur_channel = mss_record.core.channel.Channel(name = cur_name,
                                                           adc_address = cur_addr,
                                                           rdy_gpio = cur_rdy_gpio,
+                                                          i2c_mutex = self.i2c_mutex,
                                                           sps = 128,
                                                           gain = 4)
 
