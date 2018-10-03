@@ -21,7 +21,7 @@
 
 
 import logging
-import threading
+import multiprocessing
 import time
 
 import numpy as np
@@ -36,7 +36,7 @@ class Channel:
 
     '''
 
-    def __init__(self, name, adc_address, rdy_gpio, i2c_mutex, sps = 128, gain = 1):
+    def __init__(self, name, adc_address, rdy_gpio, i2c_mutex, data_queue, sps = 128, gain = 1):
         ''' Initialization of the instance.
 
         '''
@@ -63,6 +63,9 @@ class Channel:
         # The ADC device.
         self.adc = mss_record.adc.ads111x.ADS1114(address = self.adc_address)
 
+        # The multiprocessing queue used to get the ADC data from a subprocess.
+        self.data_queue = data_queue
+
         # The samples collected from the ADC.
         self.data = []
 
@@ -70,7 +73,7 @@ class Channel:
         self.i2c_mutex = i2c_mutex
 
         # The mutex lock for the data.
-        self.data_mutex = threading.Lock()
+        self.data_mutex = multiprocessing.Lock()
 
         self.drdy = False
 
@@ -140,11 +143,18 @@ class Channel:
         self.logger.info("Added the DRDY event handler for channel %s.", self.name)
 
 
+    def stop(self):
+        ''' Stop the data collection of the channel.
+        '''
+        gpio.remove_event_detect(self.rdy_gpio)
+        gpio.cleanup(self.rdy_gpio)
+
+
     def drdy_callback(self, channel):
         ''' Handle the ADC drdy interrupt.
         '''
         cur_timestamp = obspy.UTCDateTime()
-        start = time.time()
+        #start = time.time()
 
         # TODO: Add a check against filling up the self.data list in case, that
         # the get_data method is not called for some time.
@@ -152,25 +162,25 @@ class Channel:
         cur_sample = self.adc.get_last_result()
         self.i2c_mutex.release()
 
-        self.data_mutex.acquire()
-        self.data.append((cur_timestamp, cur_sample))
-        self.data_mutex.release()
+        self.data_queue.put((cur_timestamp, cur_sample))
 
-        end = time.time()
-        self.logger.info('drdy dt: %f', end - start)
-        self.logger.info("cur_timestamp: %s", cur_timestamp)
+        #end = time.time()
+        #self.logger.info('drdy dt: %f', end - start)
+        #self.logger.info("cur_timestamp: %s", cur_timestamp)
 
 
     def get_data(self, start_time, end_time):
         ''' Return the data and clear the data array.
         '''
         start = time.time()
-        self.data_mutex.acquire()
-        cur_data = self.data.copy()
-        self.data_mutex.release()
+        cur_data = self.data_queue.get()
         end = time.time()
         dt_1 = end - start
         self.logger.info('get_data dt_1: %f', dt_1)
+        self.logger.info(cur_data)
+        return
+
+
         ret_data = [x for x in cur_data if x[0] >= start_time and x[0] < end_time]
 
         if ret_data:

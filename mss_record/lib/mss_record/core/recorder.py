@@ -22,9 +22,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+import multiprocessing
 import os
 import re
+import signal
 import subprocess
+import sys
 import threading
 import time
 
@@ -66,7 +69,10 @@ class Recorder:
         self.stream = obspy.core.Stream()
 
         # Mutex used for I2C communication.
-        self.i2c_mutex = threading.Lock()
+        self.i2c_mutex = multiprocessing.Lock()
+
+        # Thread synchronization.
+        self.stop_event = multiprocessing.Event()
 
         # The communication configuration of the ADCS.
         # The i2c addresses and the raspberry pins to which the RDY pins of the ADCs are connected.
@@ -125,10 +131,12 @@ class Recorder:
             cur_addr = cur_config['i2c_address']
             cur_rdy_gpio = cur_config['rdy_gpio']
             self.logger.info("Checking channel %s with ADC address %s.", cur_name, hex(cur_addr))
+            data_queue = multiprocessing.Queue()
             cur_channel = mss_record.core.channel.Channel(name = cur_name,
                                                           adc_address = cur_addr,
                                                           rdy_gpio = cur_rdy_gpio,
                                                           i2c_mutex = self.i2c_mutex,
+                                                          data_queue = data_queue,
                                                           sps = 128,
                                                           gain = 8)
 
@@ -173,17 +181,31 @@ class Recorder:
         scheduler.start()
         '''
 
+
         # Wait for the next full second, than start the channels.
         now = obspy.UTCDateTime()
         delay_to_next_second = (1e6 - now.microsecond) / 1e6
         time.sleep(delay_to_next_second)
-        for cur_name in sorted(self.channels.keys()):
-            cur_channel = self.channels[cur_name]
-            self.logger.info("Starting channel %s.", cur_name)
-            cur_channel.run()
+        #orig_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        self.data_request_process = multiprocessing.Process(target = data_request,
+                                                       args = (self.channels, self.stop_event),
+                                                       name = "data_request")
+        self.data_request_process.start()
+        #signal.signal(signal.SIGINT, orig_sigint_handler)
 
-        self.pps(self.collect_data)
+        self.pps_thread = threading.Thread(name = 'pps',
+                                      target = self.pps,
+                                      args = (self.collect_data,))
 
+        self.pps_thread.start()
+
+
+    def stop(self):
+        ''' Stop the data collection.
+        '''
+        self.logger.info("Stopping.")
+        self.stop_event.set()
+        self.logger.info("Stopped... %s", self.stop_event.is_set())
 
 
     def collect_data(self):
@@ -191,6 +213,7 @@ class Recorder:
         '''
         timestamp = obspy.UTCDateTime()
         self.logger.info('Collecting data. timestamp: %s', timestamp)
+        return
 
         request_start = timestamp - 1
         request_start.microsecond = 0
@@ -262,7 +285,7 @@ class Recorder:
         self.write_interval = int(self.write_interval)
         self.write_counter = 0
 
-        while True:
+        while not self.stop_event.is_set():
             try:
                 callback()
             except Exception as e:
@@ -276,7 +299,32 @@ class Recorder:
             delay_to_next_second = (1e6 - now.microsecond) / 1e6
             time.sleep(delay_to_next_second)
 
+        self.logger.info("Leaving the pps method.")
 
 
 
 
+def data_request(channels, stop_event):
+    ''' Request data from the ADCs and put it into the queue.
+    '''
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    # The logger.
+    logger_name = __name__
+    logger = logging.getLogger(logger_name)
+
+    logger.info("Starting the ADC data request for channels: %s.", channels)
+    for cur_name in sorted(channels.keys()):
+        cur_channel = channels[cur_name]
+        logger.info("Starting channel %s.", cur_name)
+        cur_channel.run()
+
+    while not stop_event.is_set():
+        logger.info("data_request waiting.... %s", stop_event.is_set())
+        time.sleep(1)
+
+    for cur_name in sorted(channels.keys()):
+        cur_channel = channels[cur_name]
+        logger.info("Stopping channel %s.", cur_name)
+        cur_channel.stop()
+    logger.info("Leaving the data_request process.")
+    sys.exit(0)

@@ -27,6 +27,7 @@ import configparser
 import logging
 import logging.handlers
 import os
+import signal
 import sys
 
 import mss_record.core.recorder
@@ -63,6 +64,14 @@ def load_configuration(filename):
 
 
 if __name__ == '__main__':
+    def signal_handler(signum, frame):
+        logger.info("Stopping the recorder.")
+        recorder.stop()
+        logger.info('Exiting program.')
+        sys.exit(0)
+
+    # Handle signals.
+    signal.signal(signal.SIGINT, signal_handler)
 
     # Specify the configuration file using argpars.
     parser = argparse.ArgumentParser(description = 'mss_record')
@@ -106,6 +115,9 @@ if __name__ == '__main__':
     # Zeitdauer testen 
 
     recorder.run()
+
+    while True:
+        signal.pause()
 
 
 
