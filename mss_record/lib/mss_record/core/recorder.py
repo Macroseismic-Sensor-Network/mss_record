@@ -187,6 +187,7 @@ class Recorder:
         delay_to_next_second = (1e6 - now.microsecond) / 1e6
         time.sleep(delay_to_next_second)
         #orig_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        self.logger.info("self.channels. %s.", self.channels)
         self.data_request_process = multiprocessing.Process(target = data_request,
                                                        args = (self.channels, self.stop_event),
                                                        name = "data_request")
@@ -205,6 +206,8 @@ class Recorder:
         '''
         self.logger.info("Stopping.")
         self.stop_event.set()
+        self.data_request_process.join()
+        self.pps_thread.join()
         self.logger.info("Stopped... %s", self.stop_event.is_set())
 
 
@@ -213,7 +216,6 @@ class Recorder:
         '''
         timestamp = obspy.UTCDateTime()
         self.logger.info('Collecting data. timestamp: %s', timestamp)
-        return
 
         request_start = timestamp - 1
         request_start.microsecond = 0
@@ -231,23 +233,41 @@ class Recorder:
             cur_channel = self.channels[cur_name]
             cur_data = cur_channel.get_data(start_time = request_start,
                                             end_time = request_end)
-            self.logger.info("get_data finised.")
-            return
+            self.logger.info("get_data finished.")
+
             if cur_data:
-                cur_data = [x[1] for x in cur_data]
                 self.logger.info("Collected data from channel %s.", cur_channel.name)
                 self.logger.info("Data length: %d.", len(cur_data))
                 if (len(cur_data) > (cur_channel.sps - 10)) and (len(cur_data) < (cur_channel.sps + 10)):
-                    cur_data = sp.signal.resample(cur_data, int(self.sps))
-                    cur_trace = obspy.core.Trace(data = cur_data)
-                    cur_trace.stats.network = self.network
-                    cur_trace.stats.station = self.station
-                    cur_trace.stats.location = self.location
-                    cur_trace.stats.channel = cur_channel.name
-                    cur_trace.stats.sampling_rate = self.sps
-                    cur_trace.stats.starttime = request_start
-                    self.logger.info(cur_trace)
-                    self.stream.append(cur_trace)
+                    # Grid the data to a regular sampling interval.
+                    try:
+                        cur_data = np.array(cur_data)
+                        self.logger.info("orig_data: %s", cur_data[:,1])
+                        cur_time = cur_data[:,0] - request_start
+                        self.logger.info("cur_time: %s", cur_time)
+                        cur_samp_time = np.arange(0, 1, 1/cur_channel.sps)
+                        self.logger.info("cur_samp_time: %s", cur_samp_time)
+                        cur_data = sp.interpolate.griddata(cur_time, cur_data[:,1], cur_samp_time,
+                                                           method = 'nearest')
+                        self.logger.info("cur_data: %s", cur_data)
+
+                        # Resample the data to the recorder sampling rate.
+                        cur_data = sp.signal.resample(cur_data, int(self.sps))
+
+                        # Create a obspy trace using the resampled data.
+                        cur_trace = obspy.core.Trace(data = cur_data)
+                        cur_trace.stats.network = self.network
+                        cur_trace.stats.station = self.station
+                        cur_trace.stats.location = self.location
+                        cur_trace.stats.channel = cur_channel.name
+                        cur_trace.stats.sampling_rate = self.sps
+                        cur_trace.stats.starttime = request_start
+                        self.logger.info(cur_trace)
+
+                        # Add the trace to the recorder stream.
+                        self.stream.append(cur_trace)
+                    except Exception as e:
+                        self.logger.exception(e)
                 else:
                     self.logger.error("The retrieved number of samples doesn't match the expected value.")
 
