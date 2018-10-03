@@ -173,30 +173,28 @@ class Channel:
         ''' Return the data and clear the data array.
         '''
         start = time.time()
-        cur_data = self.data_queue.get()
+        queue_len = self.data_queue.qsize()
+        cur_data = [self.data_queue.get() for x in range(queue_len)]
         end = time.time()
         dt_1 = end - start
         self.logger.info('get_data dt_1: %f', dt_1)
-        self.logger.info(cur_data)
-        return
 
-
-        ret_data = [x for x in cur_data if x[0] >= start_time and x[0] < end_time]
-
-        if ret_data:
-            del_ind = len(ret_data)
+        if cur_data:
+            # Include some samples prior to the requested start time. This
+            # gives better results when using griddata in the recorder.
+            start_time = start_time - 2 * 1/self.sps
+            self.logger.info("start: %s; end: %s", start_time, end_time)
             start = time.time()
-            self.data_mutex.acquire()
-            self.data = self.data[del_ind:]
-            self.data_mutex.release()
+            with self.data_mutex:
+                self.data.extend(cur_data)
+                ret_data = [x for x in self.data if x[0] >= start_time and x[0] < end_time]
+                # Keep the last sample for better nearest neighbour
+                # interpolation.
+                del_ind = len(ret_data) - 1
+                self.data = self.data[del_ind:]
             end = time.time()
             dt_2 = end - start
-
-        self.logger.info('get_data dt_2: %f', dt_2)
-
-        #self.data_mutex.acquire()
-        #self.logger.info('self.data: %s', self.data)
-        #self.data_mutex.release()
+            self.logger.info('get_data dt_2: %f', dt_2)
 
         return ret_data
 
