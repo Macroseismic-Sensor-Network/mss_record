@@ -274,7 +274,7 @@ class Recorder:
         self.write_counter += 1
 
         if self.write_counter >= self.write_interval:
-            data_dir = '/home/mss/mseeds'
+            data_dir = '/home/mss/mseed'
             self.stream.merge()
             self.logger.info('stream: %s.', self.stream)
             for cur_trace in self.stream:
