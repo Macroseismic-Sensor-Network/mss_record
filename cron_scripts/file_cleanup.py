@@ -6,7 +6,7 @@ import time
 # The directories to process and the corresponding time span in seconds for which to keep
 # the files in the directory.
 data_dir = {
-        '/home/mss/mseeds': 120,
+        '/home/mss/mseed': 120,
         }
 
 now = time.time()
