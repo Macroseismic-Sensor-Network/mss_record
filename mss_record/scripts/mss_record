@@ -34,7 +34,7 @@ import threading
 import traceback
 
 import mss_record.core.recorder
-
+import mss_record.version
 
 class MultiProcessingLog(logging.Handler):
     def __init__(self, filename, maxBytes, backupCount):
@@ -158,6 +158,8 @@ if __name__ == '__main__':
     logger.setLevel(config['log']['level'])
     logger.addHandler(get_logger_handler(log_filename))
 
+    logger.info("mss_record version %s", mss_record.__version__)
+    logger.info("mss_record git_version: %s", mss_record.version.__git_version__)
     logger.info("Starting mss record with configuration: %s.", config)
 
 
