@@ -1,3 +1,6 @@
+# Ignore the version file.
+__version__.py
+
 # Ignore compiled python files.
 *.pyc
 
