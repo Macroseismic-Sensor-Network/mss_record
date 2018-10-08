@@ -57,12 +57,12 @@ ADS111x_CONFIG_DEFAULT         = 0x0583
 # See table 3 in the ADS1015/ADS1115 datasheet for more info on gain.
 # Maping of gain values to config register values.
 ADS111x_CONFIG_GAIN = {
-    2/3: 0x0000,
-    1:   0x0200,
-    2:   0x0400,
-    4:   0x0600,
-    8:   0x0800,
-    16:  0x0A00
+    '2/3': 0x0000,
+      '1': 0x0200,
+      '2': 0x0400,
+      '4': 0x0600,
+      '8': 0x0800,
+     '16': 0x0A00
 }
 ADS111x_CONFIG_MODE_CONTINUOUS  = 0x0000
 ADS111x_CONFIG_MODE_SINGLE      = 0x0100
