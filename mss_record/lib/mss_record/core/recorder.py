@@ -43,7 +43,7 @@ class Recorder:
     ''' The recorder class.
 
     '''
-    def __init__(self, network, station, location):
+    def __init__(self, network, station, location, channel_config):
         ''' Initialization of the instance.
 
         '''
@@ -58,6 +58,9 @@ class Recorder:
         self.station = station
         # A 2 characters long string.
         self.location = location
+
+        # A dictionary holding the configuration of the channels.
+        self.channel_config = channel_config
 
         # The general sampling rate of the recorder.
         self.sps = 100.
@@ -130,6 +133,11 @@ class Recorder:
             cur_config = self.adc_config[cur_name]
             cur_addr = cur_config['i2c_address']
             cur_rdy_gpio = cur_config['rdy_gpio']
+            if cur_name in self.channel_config:
+                cur_gain = self.channel_config[cur_name]['gain']
+            else:
+                self.error("No channel configuration found for channel %s.", cur_name)
+                sys.exit()
             self.logger.info("Checking channel %s with ADC address %s.", cur_name, hex(cur_addr))
             data_queue = multiprocessing.Queue()
             cur_channel = mss_record.core.channel.Channel(name = cur_name,
@@ -138,7 +146,7 @@ class Recorder:
                                                           i2c_mutex = self.i2c_mutex,
                                                           data_queue = data_queue,
                                                           sps = 128,
-                                                          gain = 8)
+                                                          gain = cur_gain)
 
             if(cur_channel.check_adc()):
                 self.logger.info("Found a working ADC.")

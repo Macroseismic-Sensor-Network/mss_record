@@ -1,0 +1,14 @@
+[Unit]
+Description=Datalink client scanning a miniseed folder.
+After=rsyslog.service udev.service
+
+[Service]
+ExecStart=/home/mss/bin/start_dali.py /home/mss/config/dali.ini
+Type=simple
+User=mss
+WorkingDirectory=/home/mss
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

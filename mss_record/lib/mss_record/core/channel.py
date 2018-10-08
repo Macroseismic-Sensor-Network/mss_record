@@ -36,7 +36,7 @@ class Channel:
 
     '''
 
-    def __init__(self, name, adc_address, rdy_gpio, i2c_mutex, data_queue, sps = 128, gain = 1):
+    def __init__(self, name, adc_address, rdy_gpio, i2c_mutex, data_queue, sps = 128, gain = '1'):
         ''' Initialization of the instance.
 
         '''
