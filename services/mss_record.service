@@ -1,0 +1,14 @@
+[Unit]
+Description=MSS data acquisition.
+After=rsyslog.service udev.service
+
+[Service]
+ExecStart=/home/mss/.local/bin/mss_record /home/mss/config/mss_record.ini
+Type=simple
+User=mss
+WorkingDirectory=/home/mss
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
