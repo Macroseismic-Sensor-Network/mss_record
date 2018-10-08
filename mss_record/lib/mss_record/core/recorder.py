@@ -187,7 +187,7 @@ class Recorder:
         delay_to_next_second = (1e6 - now.microsecond) / 1e6
         time.sleep(delay_to_next_second)
         #orig_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
-        self.logger.info("self.channels. %s.", self.channels)
+        self.logger.debug("self.channels. %s.", self.channels)
         self.data_request_process = multiprocessing.Process(target = data_request,
                                                        args = (self.channels, self.stop_event),
                                                        name = "data_request")
@@ -215,7 +215,7 @@ class Recorder:
         ''' Collect the data from the channels.
         '''
         timestamp = obspy.UTCDateTime()
-        self.logger.info('Collecting data. timestamp: %s', timestamp)
+        self.logger.debug('Collecting data. timestamp: %s', timestamp)
 
         request_start = timestamp - 1
         request_start.microsecond = 0
@@ -233,11 +233,11 @@ class Recorder:
             cur_channel = self.channels[cur_name]
             cur_data = cur_channel.get_data(start_time = request_start,
                                             end_time = request_end)
-            self.logger.info("get_data finished.")
+            self.logger.debug("get_data finished.")
 
             if cur_data:
-                self.logger.info("Collected data from channel %s.", cur_channel.name)
-                self.logger.info("Data length: %d.", len(cur_data))
+                self.logger.debug("Collected data from channel %s.", cur_channel.name)
+                self.logger.debug("Data length: %d.", len(cur_data))
                 if (len(cur_data) > (cur_channel.sps - 10)) and (len(cur_data) < (cur_channel.sps + 10)):
                     # Grid the data to a regular sampling interval.
                     try:
@@ -262,7 +262,7 @@ class Recorder:
                         cur_trace.stats.channel = cur_channel.name
                         cur_trace.stats.sampling_rate = self.sps
                         cur_trace.stats.starttime = request_start
-                        self.logger.info(cur_trace)
+                        self.logger.debug("cur_trace: %s", cur_trace)
 
                         # Add the trace to the recorder stream.
                         self.stream.append(cur_trace)
@@ -276,7 +276,7 @@ class Recorder:
         if self.write_counter >= self.write_interval:
             data_dir = '/home/mss/mseed'
             self.stream.merge()
-            self.logger.info('stream: %s.', self.stream)
+            self.logger.debug('stream: %s.', self.stream)
             for cur_trace in self.stream:
                 cur_filename = cur_trace.id.replace('.','_') + '_' + cur_trace.stats.starttime.isoformat().replace(':','') + '.msd'
                 cur_filepath = os.path.join(data_dir, cur_filename)
@@ -286,13 +286,13 @@ class Recorder:
                                 encodeing = 'STEIM2',
                                 flush = True)
             self.stream = obspy.core.Stream()
-            self.logger.info('stream after write: %s.', self.stream)
+            self.logger.debug('stream after write: %s.', self.stream)
             self.write_counter = 0
 
 
         # TODO: Remove old data files from the data_dir.
 
-        self.logger.info('Finished collecting data.')
+        self.logger.debug('Finished collecting data.')
 
 
 
@@ -332,14 +332,14 @@ def data_request(channels, stop_event):
     logger_name = __name__
     logger = logging.getLogger(logger_name)
 
-    logger.info("Starting the ADC data request for channels: %s.", channels)
+    logger.info("Starting the ADC data request for channels: %s.", ','.join(channels.keys()))
     for cur_name in sorted(channels.keys()):
         cur_channel = channels[cur_name]
         logger.info("Starting channel %s.", cur_name)
         cur_channel.run()
 
     while not stop_event.is_set():
-        logger.info("data_request waiting.... %s", stop_event.is_set())
+        logger.debug("data_request waiting.... %s", stop_event.is_set())
         time.sleep(1)
 
     for cur_name in sorted(channels.keys()):
