@@ -213,15 +213,16 @@ if __name__ == '__main__':
 
     logger.info("mss_record version %s", mss_record.__version__)
     logger.info("mss_record git_version: %s", mss_record.version.__git_version__)
-    logger.info("Starting mss record with configuration: %s.", config)
 
     # Get the serial number.
+    logger.info("Getting the serial number.")
     valid_serial = get_serial(config, logger)
     if not valid_serial:
         logger.error("Error when reading the serial number. Please fix it.")
         time.sleep(0.5)
         sys.exit(1)
 
+    logger.info("Checking the configuration.")
     valid_config = validate_config(config, logger)
     if not valid_config:
         logger.error("There are errors in the config file. Please fix them.")
@@ -229,6 +230,8 @@ if __name__ == '__main__':
         # file.
         time.sleep(0.5)
         sys.exit(1)
+
+    logger.info("Starting mss record with configuration: %s.", config)
 
     # Create the recorder instance.
     recorder = mss_record.core.recorder.Recorder(network = config['station']['network'],
