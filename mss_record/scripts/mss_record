@@ -120,17 +120,39 @@ def load_configuration(filename):
     config['log']['filename'] = parser.get('log', 'log_filename').strip()
     config['log']['level'] = parser.get('log', 'log_level').strip()
 
-    config['station'] = {}
-    config['station']['network'] = parser.get('station', 'network').strip()
-    config['station']['station_code'] = parser.get('station', 'station_code').strip()
-    config['station']['location'] = parser.get('station', 'location').strip()
-
     config['channel'] = {}
     config['channel']['001'] = {'gain': parser.get('channel', 'gain_channel_001').strip()}
     config['channel']['002'] = {'gain': parser.get('channel', 'gain_channel_002').strip()}
     config['channel']['003'] = {'gain': parser.get('channel', 'gain_channel_003').strip()}
 
+    # Set the values which are fixed.
+    config['station'] = {}
+    config['station']['network'] = 'XX'
+    config['station']['station_code'] = ''
+    config['station']['location'] = '00'
+
     return config
+
+
+def get_serial(config, logger):
+    '''
+    '''
+    is_valid = True
+    serial_filepath = '/home/mss/config/mss_serial'
+    serial = ''
+    with open(serial_filepath, 'r') as fid:
+        serial = fid.readline().strip()
+        config['station']['station_code'] = serial
+
+    if not serial:
+        logger.error("The serial number couldn't be read from the file %s.", serial_filepath)
+        is_valid = False
+
+    if len(serial) != 5:
+        logger.error("The serial number has to be 5 characters long.")
+        is_valid = False
+
+    return is_valid
 
 
 def validate_config(config, logger):
@@ -192,6 +214,13 @@ if __name__ == '__main__':
     logger.info("mss_record version %s", mss_record.__version__)
     logger.info("mss_record git_version: %s", mss_record.version.__git_version__)
     logger.info("Starting mss record with configuration: %s.", config)
+
+    # Get the serial number.
+    valid_serial = get_serial(config, logger)
+    if not valid_serial:
+        logger.error("Error when reading the serial number. Please fix it.")
+        time.sleep(0.5)
+        sys.exit(1)
 
     valid_config = validate_config(config, logger)
     if not valid_config:
