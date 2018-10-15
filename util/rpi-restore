@@ -1,0 +1,163 @@
+#!/bin/bash
+
+# Init
+COL_HIGHLIGHT="\033[0;33m"
+COL_RESET="\033[0m"
+AUTOMATIC=0
+INDIR="<none>"
+OUTFILE="<none>"
+
+# Check if every tool is available
+command -v partclone.restore >/dev/null || { echo -e "\n*** Error: partclone.restore not available\n"; exit 23; }
+
+# Options parsing
+while getopts ":i:ao:" optname; do
+    case "$optname" in
+      "i")
+        INDIR=$OPTARG
+        ;;
+      "o")
+        OUTFILE=$OPTARG
+        ;;
+      "a")
+        AUTOMATIC=1
+        ;;
+      "?")
+        echo -e "\n*** Error: unknown option -$OPTARG\n"
+	exit 1
+        ;;
+      ":")
+        echo -e "\n*** Error: missing argument for option -$OPTARG\n"
+	exit 2
+        ;;
+      *)
+        echo -e "\n*** Error: cannot process options\n"
+	exit 99
+        ;;
+    esac
+done
+
+if [[ $INDIR == "<none>" ]]; then
+        echo -e "\n*** Error: no -i option specified\n"
+	exit 3
+fi
+
+if [[ $OUTFILE == "<none>" ]]; then
+        echo -e "\n*** Error: no -o option specified\n"
+	exit 4
+fi
+
+if [[ ! -d $INDIR ]]; then
+        echo -e "\n*** Error: directory $INDIR doesn't exist, specify a different path\n"
+	exit 5
+fi
+
+if [[ ! -b $OUTFILE ]]; then
+        echo -e "\n*** Error: $OUTFILE is not a valid block device\n"
+	exit 6
+fi
+
+
+check_usb=$(udevadm info --query=all --name=$OUTFILE | grep ID_BUS)
+if [[ $check_usb == *"usb"* ]]
+then
+    echo -e "\n $OUTFILE device is an USB device.\n"
+else
+    echo -e "\n*** Error: $OUTFILE is not an USB device"
+    exit 10
+fi
+
+
+
+if   [[ -f $INDIR/boot.img ]]; then
+	INEXT="img"
+	COMPRESSION=0
+	COMPR_DESCR="uncompressed"
+elif [[ -f $INDIR/boot.img.bz2 ]]; then
+	INEXT="img.bz2"
+	COMPRESSION=1
+	COMPR_DESCR="compressed"
+else
+	echo -e "\n*** Error: cannot find boot image\n"
+	exit 8
+fi
+
+if [[ ! -f $INDIR/system.$INEXT ]]; then
+	echo -e "\n*** Error: cannot find system image\n"
+	exit 9
+fi
+
+echo -ne "\n${COL_HIGHLIGHT}Ready to perform restore of RPi sd card $OUTFILE from $COMPR_DESCR image in ${INDIR}${COL_RESET}\n"
+
+if [[ $AUTOMATIC == 0 ]]; then
+	echo
+	read -p "Do you want to continue? (y/n) "
+	if [[ ! $REPLY =~ [yY] ]]; then
+		echo -e "\n*** Aborting\n"
+		exit 98
+	fi
+fi
+
+echo -e "\n${COL_HIGHLIGHT}Unmounting $OUTFILE...${COL_RESET}\n"
+
+umount ${OUTFILE}?
+
+echo -e "\n${COL_HIGHLIGHT}Creating partitions on $OUTFILE...${COL_RESET}\n"
+
+sudo sfdisk ${OUTFILE} -uS << EOF
+8192,88472,c
+98304,
+EOF
+sync
+
+dd if=/dev/zero of=${OUTFILE}1 bs=512 count=1
+sync
+
+
+
+echo -e "\n${COL_HIGHLIGHT}Creating filesystems on $OUTFILE...${COL_RESET}\n"
+mkfs -t vfat -F 32 ${OUTFILE}1
+mkfs -t ext4 ${OUTFILE}2
+sync
+
+echo -e "\n${COL_HIGHLIGHT}Restoring boot partition...${COL_RESET}\n"
+
+if [[ $COMPRESSION == 1 ]]; then
+	bunzip2 -c $INDIR/boot.$INEXT | partclone.restore --source - --output ${OUTFILE}1
+else
+	partclone.restore --output ${OUTFILE}1 --source $INDIR/boot.$INEXT
+fi
+
+echo -e "\n${COL_HIGHLIGHT}Restoring system partition...${COL_RESET}\n"
+
+if [[ $COMPRESSION == 1 ]]; then
+	bunzip2 -c $INDIR/system.$INEXT | partclone.restore  --source - --output ${OUTFILE}2
+else
+	partclone.restore --output ${OUTFILE}2 --source $INDIR/system.$INEXT
+fi
+
+
+################### Adjusting the PARTUUID ##############################
+echo -e "\n${COL_HIGHLIGHT}Adjusting the PARTUUID entries.${COL_RESET}\n"
+disk_id=$(fdisk -l ${OUTFILE} | grep 'Disk identifier:' | awk '{print $3}')
+disk_id=${disk_id:2}
+
+mkdir sd
+mkdir sd/boot
+mkdir sd/rootfs
+mount -t vfat ${OUTFILE}1 sd/boot
+mount -t ext4 ${OUTFILE}2 sd/rootfs
+sed -i "s/PARTUUID=[a-zA-Z0-9]*/PARTUUID=$disk_id/g" sd/boot/cmdline.txt
+sed -i "s/PARTUUID=[a-zA-Z0-9]*/PARTUUID=$disk_id/g" sd/rootfs/etc/fstab
+
+umount sd/boot
+umount sd/rootfs
+rm -r sd
+
+
+################### Resizing the filesystem ###############################
+echo -e "\n${COL_HIGHLIGHT}Resize the rootfs filesystem to the partition size.${COL_RESET}\n"
+e2fsck -f ${OUTFILE}2
+resize2fs ${OUTFILE}2
+sync
+

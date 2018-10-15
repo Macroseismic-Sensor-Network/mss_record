@@ -1,0 +1,133 @@
+#!/bin/bash
+
+# Init
+COL_HIGHLIGHT="\033[0;33m"
+COL_RESET="\033[0m"
+COMPRESSION=0
+AUTOMATIC=0
+INFILE="<none>"
+OUTDIR="<none>"
+
+# Check if every tool is available
+command -v partclone.fat     >/dev/null || { echo -e "\n*** Error: partclone.fat not available\n"; exit 21; }
+command -v partclone.extfs   >/dev/null || { echo -e "\n*** Error: partclone.extfs not available\n"; exit 22; }
+
+# Options parsing
+while getopts ":ci:ao:" optname; do
+    case "$optname" in
+      "c")
+        COMPRESSION=1
+        ;;
+      "i")
+        INFILE=$OPTARG
+        ;;
+      "o")
+        OUTDIR=$OPTARG
+        ;;
+      "a")
+        AUTOMATIC=1
+        ;;
+      "?")
+        echo -e "\n*** Error: unknown option -$OPTARG\n"
+	exit 1
+        ;;
+      ":")
+        echo -e "\n*** Error: missing argument for option -$OPTARG\n"
+	exit 2
+        ;;
+      *)
+        echo -e "\n*** Error: cannot process options\n"
+	exit 99
+        ;;
+    esac
+done
+
+if [[ $INFILE == "<none>" ]]; then
+        echo -e "\n*** Error: no -i option specified\n"
+	exit 3
+fi
+
+if [[ $OUTDIR == "<none>" ]]; then
+        echo -e "\n*** Error: no -o option specified\n"
+	exit 4
+fi
+
+if [[ -e $OUTDIR ]]; then
+        echo -e "\n*** Error: $OUTDIR already exists, specify a different directory path\n"
+	exit 5
+fi
+
+if [[ ! -b $INFILE ]]; then
+        echo -e "\n*** Error: $INFILE is not a valid block device\n"
+	exit 6
+fi
+
+check_usb=$(udevadm info --query=all --name=$INFILE | grep ID_BUS)
+if [[ $check_usb == *"usb"* ]]
+then
+    echo -e "\n $OUTFILE device is an USB device.\n"
+else
+    echo -e "\n*** Error: $OUTFILE is not an USB device"
+    exit 10
+fi
+
+echo -ne "\n${COL_HIGHLIGHT}Ready to perform backup of RPi sd card $INFILE to folder $OUTDIR"
+
+if [[ $COMPRESSION == 0 ]]; then
+	echo -e " without compression${COL_RESET}"
+	OUTEXT="img"
+else
+	echo -e " with compression${COL_RESET}"
+	OUTEXT="img.bz2"
+fi
+
+if [[ $AUTOMATIC == 0 ]]; then
+	echo
+	read -p "Do you want to continue? (y/n) "
+	if [[ ! $REPLY =~ [yY] ]]; then
+		echo -e "\n*** Aborting\n"
+		exit 98
+	fi
+fi
+
+echo -e "\n${COL_HIGHLIGHT}Creating $OUTDIR directory${COL_RESET}"
+
+mkdir --parents $OUTDIR
+
+if [[ ! -d $OUTDIR ]]; then
+	echo -e "\n*** Error: cannot create $OUTDIR directory\n"
+	exit 7
+fi
+
+echo -e "\n${COL_HIGHLIGHT}Unmounting $INFILE...${COL_RESET}\n"
+
+umount ${INFILE}?
+
+echo -e "\n${COL_HIGHLIGHT}Backing up boot partition...${COL_RESET}\n"
+
+if [[ $COMPRESSION == 1 ]]; then
+	partclone.fat   --clone --source ${INFILE}1 --output - | bzip2 -9 > $OUTDIR/boot.$OUTEXT
+else
+	partclone.fat   --clone --source ${INFILE}1 --output $OUTDIR/boot.$OUTEXT
+fi
+
+echo -e "\n${COL_HIGHLIGHT}Backing up system partition...${COL_RESET}\n"
+
+if [[ $COMPRESSION == 1 ]]; then
+	partclone.extfs --clone --source ${INFILE}2 --output - | bzip2 -9 > $OUTDIR/system.$OUTEXT
+else
+	partclone.extfs --clone --source ${INFILE}2 --output $OUTDIR/system.$OUTEXT
+fi
+
+
+if [[ ! -f $OUTDIR/boot.$OUTEXT ]]; then
+        echo -e "\n*** Error: $OUTDIR/boot.$OUTEXT is missing, something went wrong\n"
+	exit 9
+fi
+
+if [[ ! -f $OUTDIR/system.$OUTEXT ]]; then
+        echo -e "\n*** Error: $OUTDIR/system.$OUTEXT is missing, something went wrong\n"
+	exit 10
+fi
+
+echo -e "\n${COL_HIGHLIGHT}Everything is Ok.${COL_RESET}\n"
