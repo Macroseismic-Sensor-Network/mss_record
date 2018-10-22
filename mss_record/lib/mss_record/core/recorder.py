@@ -66,7 +66,7 @@ class Recorder:
         self.sps = 100.
 
         # The interval in full seconds to write the miniseed file.
-        self.write_interval = 10
+        self.write_interval = 2
 
         # The obspy data stream.
         self.stream = obspy.core.Stream()
@@ -284,6 +284,7 @@ class Recorder:
         if self.write_counter >= self.write_interval:
             data_dir = '/home/mss/mseed'
             self.stream.merge()
+            self.stream.split()
             self.logger.debug('stream: %s.', self.stream)
             for cur_trace in self.stream:
                 cur_filename = cur_trace.id.replace('.','_') + '_' + cur_trace.stats.starttime.isoformat().replace(':','') + '.msd'
