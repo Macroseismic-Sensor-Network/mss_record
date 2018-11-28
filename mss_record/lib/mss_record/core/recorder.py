@@ -294,8 +294,16 @@ class Recorder:
                                 format = "MSEED",
                                 reclen = 512,
                                 encodeing = 'STEIM2',
-                                flush = True)
-            self.stream = obspy.core.Stream()
+                                flush = False)
+                # Reread the file to check the end time.
+                if os.path.exists(cur_filepath):
+                    cur_exp_st = obspy.read(cur_filepath)
+                    self.logger.debug('Reread stream: %s.', cur_exp_st)
+                    end_list = [x.stats.endtime for x in cur_exp_st]
+                    cur_end = max(end_list)
+                    cur_trace.trim(starttime = cur_end,
+                                   nearest_sample = False)
+            #self.stream = obspy.core.Stream()
             self.logger.debug('stream after write: %s.', self.stream)
             self.write_counter = 0
 
