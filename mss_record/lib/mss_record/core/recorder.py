@@ -298,10 +298,10 @@ class Recorder:
                 # Reread the file to check the end time.
                 if os.path.exists(cur_filepath):
                     cur_exp_st = obspy.read(cur_filepath)
-                    self.logger.debug('Reread stream: %s.', cur_exp_st)
+                    self.logger.debug('Re-read stream: %s.', cur_exp_st)
                     end_list = [x.stats.endtime for x in cur_exp_st]
                     cur_end = max(end_list)
-                    cur_trace.trim(starttime = cur_end,
+                    cur_trace.trim(starttime = cur_end + cur_exp_st[0].stats.delta,
                                    nearest_sample = False)
             #self.stream = obspy.core.Stream()
             self.logger.debug('stream after write: %s.', self.stream)
