@@ -125,11 +125,14 @@ def load_configuration(filename):
     config['channel']['002'] = {'gain': parser.get('channel', 'gain_channel_002').strip()}
     config['channel']['003'] = {'gain': parser.get('channel', 'gain_channel_003').strip()}
 
+    config['record']['write_interval'] = int(parser.get('record', 'write_interval').strip())
+
     # Set the values which are fixed.
     config['station'] = {}
     config['station']['network'] = 'XX'
     config['station']['station_code'] = ''
     config['station']['location'] = '00'
+
 
     return config
 
@@ -173,6 +176,10 @@ def validate_config(config, logger):
 
     if len(config['station']['location']) > 2:
         logger.error("The station location has to be max. 2 characters long.")
+        is_valid = False
+
+    if not config['record']['write_interval']:
+        logger.error("You have to specify a write interval.")
         is_valid = False
 
     return is_valid
@@ -243,6 +250,7 @@ if __name__ == '__main__':
     working_servers = recorder.check_ntp()
     if not working_servers:
         logger.error("No working NTP servers found, exiting.")
+        time.sleep(0.5)
         sys.exit(1)
 
     # - access to destination folder for miniseed files

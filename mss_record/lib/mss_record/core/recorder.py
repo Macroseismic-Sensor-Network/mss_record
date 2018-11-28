@@ -43,7 +43,8 @@ class Recorder:
     ''' The recorder class.
 
     '''
-    def __init__(self, network, station, location, channel_config):
+    def __init__(self, network, station, location, channel_config,
+                 write_interval = 10):
         ''' Initialization of the instance.
 
         '''
@@ -66,7 +67,7 @@ class Recorder:
         self.sps = 100.
 
         # The interval in full seconds to write the miniseed file.
-        self.write_interval = 2
+        self.write_interval = write_interval
 
         # The obspy data stream.
         self.stream = obspy.core.Stream()
