@@ -294,7 +294,7 @@ class Recorder:
                     cur_trace.write(cur_filepath,
                                     format = "MSEED",
                                     reclen = 512,
-                                    encodeing = 'STEIM2',
+                                    encoding = 'STEIM2',
                                     flush = False)
                 except Exception as e:
                     self.logger.exception("Error when writing the miniseed file. Clearing the stream and going on.")
