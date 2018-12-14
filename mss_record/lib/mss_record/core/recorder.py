@@ -262,7 +262,6 @@ class Recorder:
 
                         # Resample the data to the recorder sampling rate.
                         cur_data = sp.signal.resample(cur_data, int(self.sps))
-                        cur_data = cur_data.astype(np.int32)
 
                         # Create a obspy trace using the resampled data.
                         cur_trace = obspy.core.Trace(data = cur_data)
@@ -292,6 +291,7 @@ class Recorder:
                 cur_filename = cur_trace.id.replace('.','_') + '_' + cur_trace.stats.starttime.isoformat().replace(':','') + '.msd'
                 cur_filepath = os.path.join(data_dir, cur_filename)
                 try:
+                    cur_trace.date = cur_trace.data.astype(np.int32)
                     cur_trace.write(cur_filepath,
                                     format = "MSEED",
                                     reclen = 512,
