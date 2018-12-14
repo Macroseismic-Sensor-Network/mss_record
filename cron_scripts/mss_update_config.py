@@ -3,7 +3,9 @@
 import configparser
 import json
 import os
+import random
 import subprocess
+import time
 import urllib.request
 
 update_path = '/home/mss/update'
@@ -62,6 +64,11 @@ def update_dali():
         os.environ['LANGUAGE'] = orig_lang
 
 if __name__ == '__main__':
+    # Add some jitter to the start of the execution to avoid that all mss try
+    # to access the update files at the same time.
+    jitter = random.randint(0, 60)
+    time.sleep(jitter)
+
     # Get the dali config file.
     try:
         urllib.request.urlretrieve(dali_config_url, local_dali_config)
