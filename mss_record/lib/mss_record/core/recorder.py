@@ -262,6 +262,7 @@ class Recorder:
 
                         # Resample the data to the recorder sampling rate.
                         cur_data = sp.signal.resample(cur_data, int(self.sps))
+                        cur_data = cur_data.astype(np.int32)
 
                         # Create a obspy trace using the resampled data.
                         cur_trace = obspy.core.Trace(data = cur_data)
