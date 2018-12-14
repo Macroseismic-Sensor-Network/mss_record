@@ -291,12 +291,13 @@ class Recorder:
                 cur_filename = cur_trace.id.replace('.','_') + '_' + cur_trace.stats.starttime.isoformat().replace(':','') + '.msd'
                 cur_filepath = os.path.join(data_dir, cur_filename)
                 try:
-                    cur_trace.data = cur_trace.data.astype(np.int32)
-                    cur_trace.write(cur_filepath,
-                                    format = "MSEED",
-                                    reclen = 512,
-                                    encoding = 'STEIM2',
-                                    flush = False)
+                    export_trace = cur_trace.copy()
+                    export_trace.data = export_trace.data.astype(np.int32)
+                    export_trace.write(cur_filepath,
+                                       format = "MSEED",
+                                       reclen = 512,
+                                       encoding = 'STEIM2',
+                                       flush = False)
                 except Exception as e:
                     self.logger.exception("Error when writing the miniseed file. Clearing the stream and going on.")
                     self.stream = obspy.core.Stream()
