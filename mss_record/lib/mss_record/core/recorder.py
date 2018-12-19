@@ -302,15 +302,20 @@ class Recorder:
                     break
                 except ValueError as e:
                     self.logger.debug("Not enough data to write a miniseed record.")
+                    os.remove(cur_filepath)
                 # Reread the file to check the end time.
                 if os.path.exists(cur_filepath):
-                    cur_exp_st = obspy.read(cur_filepath)
-                    self.logger.debug('Re-read stream: %s.', cur_exp_st)
-                    end_list = [x.stats.endtime for x in cur_exp_st]
-                    cur_end = max(end_list)
-                    cur_trace.trim(starttime = cur_end + cur_exp_st[0].stats.delta,
-                                   nearest_sample = False)
-            #self.stream = obspy.core.Stream()
+                    try:
+                        cur_exp_st = obspy.read(cur_filepath)
+                        self.logger.debug('Re-read stream: %s.', cur_exp_st)
+                        end_list = [x.stats.endtime for x in cur_exp_st]
+                        cur_end = max(end_list)
+                        cur_trace.trim(starttime = cur_end + cur_exp_st[0].stats.delta,
+                                       nearest_sample = False)
+                    except Exception as e:
+                        self.logger.exception("Error when reading the miniseed file. Remove it.")
+                        os.remove(cur_filepath)
+
             self.logger.debug('stream after write: %s.', self.stream)
             self.write_counter = 0
 
