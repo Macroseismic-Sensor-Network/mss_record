@@ -1,5 +1,3 @@
-#! /usr/bin/env python3
-
 # -*- coding: utf-8 -*-
 # LICENSE
 #
@@ -298,10 +296,12 @@ class Recorder:
                                        reclen = 512,
                                        encoding = 'STEIM2',
                                        flush = False)
-                except Exception as e:
-                    self.logger.exception("Error when writing the miniseed file. Clearing the stream and going on.")
+                except NotImplementedError as e:
+                    self.logger.exception("Error when writing the miniseed file with masked data. Clearing the stream and going on.")
                     self.stream = obspy.core.Stream()
                     break
+                except ValueError as e:
+                    self.logger.debug("Not enough data to write a miniseed record.")
                 # Reread the file to check the end time.
                 if os.path.exists(cur_filepath):
                     cur_exp_st = obspy.read(cur_filepath)
