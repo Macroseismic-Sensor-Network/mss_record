@@ -207,9 +207,8 @@ if __name__ == '__main__':
                         type = str)
 
     parser.add_argument('-v', '--version', action = 'version',
-                        version = "%(prog)s " + mss_record.__version + " ## " + mss_record.version.__git_version__,
-                        help = 'Output the program version',
-                        type = str)
+                        version = "%(prog)s " + mss_record.__version__ + " ## " + mss_record.version.__git_version__,
+                        help = 'Output the program version')
 
     args = parser.parse_args()
 
