@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "Stefan Mertl"
 __authorEmail__ = "info@mertl-research.at"
 __description__ = "MacroSeismicSensor data logging software."
