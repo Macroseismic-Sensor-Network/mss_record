@@ -205,8 +205,13 @@ if __name__ == '__main__':
 
     parser.add_argument('config_file', help = 'The path to the configuration file.',
                         type = str)
-    args = parser.parse_args()
 
+    parser.add_argument('-v', '--version', action = 'version',
+                        version = "%(prog)s " + mss_record.__version + " ## " + mss_record.version.__git_version__,
+                        help = 'Output the program version',
+                        type = str)
+
+    args = parser.parse_args()
 
     # Read the INI formatted configuration file using configparser.
     config = load_configuration(args.config_file)
