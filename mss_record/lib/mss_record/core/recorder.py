@@ -315,6 +315,8 @@ class Recorder:
                     except Exception as e:
                         self.logger.exception("Error when reading the miniseed file. Remove it.")
                         os.remove(cur_filepath)
+                        self.stream = obspy.core.Stream()
+                        break
 
             self.logger.debug('stream after write: %s.', self.stream)
             self.write_counter = 0
