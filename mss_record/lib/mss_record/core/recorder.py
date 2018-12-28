@@ -308,15 +308,16 @@ class Recorder:
                     try:
                         cur_exp_st = obspy.read(cur_filepath)
                         self.logger.debug('Re-read stream: %s.', cur_exp_st)
-                        end_list = [x.stats.endtime for x in cur_exp_st]
-                        cur_end = max(end_list)
-                        cur_trace.trim(starttime = cur_end + cur_exp_st[0].stats.delta,
-                                       nearest_sample = False)
                     except Exception as e:
                         self.logger.exception("Error when reading the miniseed file. Remove it.")
                         os.remove(cur_filepath)
                         self.stream = obspy.core.Stream()
                         break
+
+                    end_list = [x.stats.endtime for x in cur_exp_st]
+                    cur_end = max(end_list)
+                    cur_trace.trim(starttime = cur_end + cur_exp_st[0].stats.delta,
+                                   nearest_sample = False)
 
             self.logger.debug('stream after write: %s.', self.stream)
             self.write_counter = 0
