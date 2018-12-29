@@ -101,7 +101,7 @@ class MultiProcessingLog(logging.Handler):
 def get_logger_handler(filename):
     ''' Create a logging format handler.
     '''
-    ch = MultiProcessingLog(filename, maxBytes = 1000000, backupCount = 10)
+    ch = MultiProcessingLog(filename, maxBytes = 10000000, backupCount = 10)
     formatter = logging.Formatter("#LOG# - %(asctime)s - %(process)d - %(threadName)s - %(levelname)s - %(name)s: %(message)s")
     ch.setFormatter(formatter)
 
