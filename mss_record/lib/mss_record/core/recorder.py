@@ -240,7 +240,7 @@ class Recorder:
             cur_channel = self.channels[cur_name]
             cur_data = cur_channel.get_data(start_time = request_start,
                                             end_time = request_end)
-            self.logger.debug("get_data finished.")
+            #self.logger.debug("get_data finished.")
 
             if cur_data:
                 self.logger.debug("Collected data from channel %s.", cur_channel.name)
@@ -249,14 +249,14 @@ class Recorder:
                     # Grid the data to a regular sampling interval.
                     try:
                         cur_data = np.array(cur_data)
-                        self.logger.debug("orig_data: %s", cur_data[:,1])
+                        #self.logger.debug("orig_data: %s", cur_data[:,1])
                         cur_time = cur_data[:,0] - request_start
-                        self.logger.debug("cur_time: %s", cur_time)
+                        #self.logger.debug("cur_time: %s", cur_time)
                         cur_samp_time = np.arange(0, 1, 1/cur_channel.sps)
-                        self.logger.debug("cur_samp_time: %s", cur_samp_time)
+                        #self.logger.debug("cur_samp_time: %s", cur_samp_time)
                         cur_data = sp.interpolate.griddata(cur_time, cur_data[:,1], cur_samp_time,
                                                            method = 'nearest')
-                        self.logger.debug("cur_data: %s", cur_data)
+                        #self.logger.debug("cur_data: %s", cur_data)
 
                         # Resample the data to the recorder sampling rate.
                         cur_data = sp.signal.resample(cur_data, int(self.sps))
