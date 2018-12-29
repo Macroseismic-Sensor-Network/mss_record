@@ -193,12 +193,19 @@ if __name__ == '__main__':
             recorder.stop()
             logger.info('Exiting program.')
             sys.exit(0)
+        elif signum == signal.SIGALRM:
+            logger.warning("Watchdog alarm: stopping the recorder.")
+            recorder.stop()
+            logger.warning('Exiting program.')
+            sys.exit(1)
         else:
             logger.info("Got unintended signal: %d.")
 
 
     # Handle signals.
     signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(60)
 
     # Specify the configuration file using argpars.
     parser = argparse.ArgumentParser(description = 'mss_record')
