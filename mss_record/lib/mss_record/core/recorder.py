@@ -305,6 +305,7 @@ class Recorder:
                                        reclen = 512,
                                        encoding = 'STEIM2',
                                        flush = flush_mode)
+                    signal.alarm(4*self.write_interval)
                 except NotImplementedError as e:
                     self.logger.exception("Error when writing the miniseed file with masked data. Clearing the stream and going on.")
                     self.stream = obspy.core.Stream()
@@ -352,8 +353,7 @@ class Recorder:
                 callback()
             except Exception as e:
                 self.logger.exception(e)
-                # in production code you might want to have this instead of course:
-                # logger.exception("Problem while executing repetitive task.")
+                self.stop()
 
             # skip tasks if we are behind schedule:
             #next_time += (time.time() - next_time) // delay * delay + delay
