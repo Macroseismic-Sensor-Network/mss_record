@@ -289,7 +289,7 @@ class Recorder:
             # If more traces than channels are available in the stream, there
             # seems to be a gap in the traces. In this case, flush all the data
             # to the miniseed file to clear the stream.
-            if len(self.stream) > len(self.channel.keys()):
+            if len(self.stream) > len(self.channels.keys()):
                 flush_mode = True
                 self.logger.warning("More traces than channels in stream. Flush the miniseed files.")
             else:
