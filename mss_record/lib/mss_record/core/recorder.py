@@ -285,6 +285,14 @@ class Recorder:
             self.stream.merge()
             self.stream = self.stream.split()
             self.logger.debug('stream: %s.', self.stream)
+
+            # If more traces than channels are available in the stream, there
+            # seems to be a gap in the traces. In this case, flush all the data
+            # to the miniseed file to clear the stream.
+            if len(self.stream) > len(self.channel.keys()):
+                flush_mode = True
+            else:
+                flush_mode = False
             for cur_trace in self.stream:
                 cur_filename = cur_trace.id.replace('.','_') + '_' + cur_trace.stats.starttime.isoformat().replace(':','') + '.msd'
                 cur_filepath = os.path.join(data_dir, cur_filename)
@@ -295,7 +303,7 @@ class Recorder:
                                        format = "MSEED",
                                        reclen = 512,
                                        encoding = 'STEIM2',
-                                       flush = False)
+                                       flush = flush_mode)
                 except NotImplementedError as e:
                     self.logger.exception("Error when writing the miniseed file with masked data. Clearing the stream and going on.")
                     self.stream = obspy.core.Stream()
