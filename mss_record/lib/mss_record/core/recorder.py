@@ -291,6 +291,7 @@ class Recorder:
             # to the miniseed file to clear the stream.
             if len(self.stream) > len(self.channel.keys()):
                 flush_mode = True
+                self.logger.warning("More traces than channels in stream. Flush the miniseed files.")
             else:
                 flush_mode = False
             for cur_trace in self.stream:
