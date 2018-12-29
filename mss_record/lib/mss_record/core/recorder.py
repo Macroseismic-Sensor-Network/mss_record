@@ -313,6 +313,8 @@ class Recorder:
                 except ValueError as e:
                     self.logger.debug("Not enough data to write a miniseed record.")
                     os.remove(cur_filepath)
+                    continue
+
                 # Reread the file to check the end time.
                 if os.path.exists(cur_filepath):
                     try:
