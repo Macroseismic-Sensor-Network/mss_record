@@ -30,4 +30,4 @@ if __name__ == '__main__':
     config = load_configuration(args.config_file)
 
     # Start mseedscan2dali using the loaded configuration.
-    subprocess.call(['/usr/local/bin/mseedscan2dali', '-d', config['mseed_dir'], config['host'] + ':' + str(config['port'])])
+    subprocess.call(['/usr/local/bin/mseedscan2dali', '-s', '5', '-d', config['mseed_dir'], config['host'] + ':' + str(config['port'])])
