@@ -88,7 +88,7 @@ class Recorder:
         # Initialize the channels.
         self.channels = {}
         self.channel_stats = {}
-        self.init_channels();
+        self.init_channels()
 
 
     def check_ntp(self):
