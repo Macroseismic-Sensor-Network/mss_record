@@ -83,7 +83,9 @@ class Channel:
         '''
         default_config = 0x8583
         try:
+            # Write the default configuration to the ADC.
             self.adc.stop_adc()
+            # Read the written configuration from the ADC.
             adc_config = self.adc.read_config()
         except IOError:
             self.logger.warning("No response from ADC at address %s.", hex(self.adc_address))
