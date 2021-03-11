@@ -70,6 +70,36 @@ def check_ntp():
     return ntp_is_working
 
 
+def check_datalink():
+    ''' Check the connection to the datalink server.
+    '''
+    logger.info('Checking datalink connection.')
+    proc = subprocess.Popen(('netstat', '-natp'),
+                            stdout = subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
+    output = proc.communicate()[0].decode('utf-8')
+    #output = subprocess.check_output(('grep', 'mseedscan2dali'),
+    #                                 stdin = proc.stdout)
+    logger.info(output)
+
+    datalink_connected = False
+
+    if output:
+        for cur_line in output.splitlines():
+            cur_line = cur_line.strip()
+            if not cur_line.lower().startswith("tcp"):
+                continue
+
+            cur_data = re.split(' +', cur_line)
+            if (cur_data[0].lower() == 'tcp') and \
+               (cur_data[6].lower().strip().endswith('mseedscan2dali')) and \
+               (cur_data[5].lower() == 'established') and \
+               (int(cur_data[2]) <= 10000):
+                    datalink_connected = True
+
+    return datalink_connected
+
+
 def task_timer(callback, stop_event, interval = 10):
     ''' A timer executing a task at regular intervals.
     '''
@@ -117,6 +147,13 @@ def check_status():
         gpio.output(led1_red, gpio.HIGH)
 
     # Check the datalink connection.
+    if check_datalink():
+        gpio.output(led2_green, gpio.HIGH)
+        gpio.output(led2_red, gpio.LOW)
+    else:
+        gpio.output(led2_green, gpio.LOW)
+        gpio.output(led2_red, gpio.HIGH)
+
 
 
     # Check the miniseed data files.
@@ -143,7 +180,7 @@ if __name__ == '__main__':
 
     # Configure the logger
     log_dir = '/home/mss/log'
-    log_filename = os.path.join('mss_status_control.log')
+    log_filename = os.path.join(log_dir, 'mss_status_control.log')
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     logger = logging.getLogger('mss_status_control')
