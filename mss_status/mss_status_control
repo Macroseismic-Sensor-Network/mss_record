@@ -1,10 +1,13 @@
 #! /usr/bin/env python3
 
+import glob
 import logging
 import logging.handlers
 import os
 import re
+import signal
 import subprocess
+import sys
 import threading
 import time
 
@@ -43,7 +46,7 @@ def check_ntp():
     ntp_is_working = False
 
     if stdout_value.lower().startswith("no association id's returned"):
-        logger.error("NTP is not running. ntpd response: %s.", stdout_value)
+        logger.warning("NTP is not running. ntpd response: %s.", stdout_value)
     else:
         # Search for the header line.
         header_token = "===\n"
@@ -59,11 +62,11 @@ def check_ntp():
         for cur_line in payload.splitlines():
             cur_data = re.split(' +', cur_line)
             if cur_line.startswith("*") or cur_line.startswith("+"):
-                if (int(cur_data[4]) <= (int(cur_data[5]) * 3)) and (int(cur_data[6]) > 0):
+                if (int(cur_data[4]) <= (int(cur_data[5]) * 2)) and (int(cur_data[6]) > 0):
                     working_server.append(cur_data)
 
     if not working_server:
-        logger.warning("No working servers found.")
+        logger.warning("No working NTP servers found.")
     else:
         ntp_is_working = True
 
@@ -74,6 +77,16 @@ def check_datalink():
     ''' Check the connection to the datalink server.
     '''
     logger.info('Checking datalink connection.')
+
+    datalink_connected = False
+
+    res = subprocess.call(('ping', '-c', '1', 'mss.mertl-research.at'),
+                          stdout = subprocess.DEVNULL,
+                          stderr = subprocess.DEVNULL)
+    if res != 0:
+        logger.warning('mss.mertl-research.at not reachable.')
+        return datalink_connected
+
     proc = subprocess.Popen(('netstat', '-natp'),
                             stdout = subprocess.PIPE,
                             stderr=subprocess.STDOUT)
@@ -82,7 +95,6 @@ def check_datalink():
     #                                 stdin = proc.stdout)
     logger.info(output)
 
-    datalink_connected = False
 
     if output:
         for cur_line in output.splitlines():
@@ -100,10 +112,36 @@ def check_datalink():
     return datalink_connected
 
 
+def check_datafiles():
+    ''' Check the writing of miniseed data files.
+    '''
+    logger.info('Checking the miniseed data.')
+    filelist = glob.glob('/home/mss/mseed/*.msd')
+    data_updated = False
+
+    if filelist:
+        filelist = sorted(filelist)
+        newest_file = filelist[-1]
+        filename = os.path.split(newest_file)[-1]
+        filename = os.path.splitext(filename)[0]
+        parts = filename.split('_')
+        file_date = obspy.UTCDateTime(parts[-1])
+        now = obspy.UTCDateTime()
+        if (now - file_date) <= 60:
+            data_updated = True
+        if not data_updated:
+            logger.warning('No up-to-date miniseed files found. now: %s; last_file: %s;', now, file_date)
+    else:
+        logger.warning('No data files found in the mseed folder.')
+
+    return data_updated
+
+
 def task_timer(callback, stop_event, interval = 10):
     ''' A timer executing a task at regular intervals.
     '''
     logger.info('Starting the timer.')
+    callback()
     interval = int(interval)
     now = obspy.UTCDateTime()
     delay_to_next_interval = interval - (now.timestamp % interval)
@@ -119,6 +157,7 @@ def task_timer(callback, stop_event, interval = 10):
 
         now = obspy.UTCDateTime()
         delay_to_next_interval = interval - (now.timestamp % interval)
+        signal.alarm(int(4 * delay_to_next_interval))
         logger.info('task_timer: Sleeping for %f seconds.',
                     delay_to_next_interval)
         time.sleep(delay_to_next_interval)
@@ -136,7 +175,7 @@ def check_status():
     gpio.output(led4_green, gpio.LOW)
     gpio.output(led4_red, gpio.LOW)
 
-    time.sleep(0.5)
+    time.sleep(0.2)
 
     # Check the NTP connection.
     if check_ntp():
@@ -154,9 +193,43 @@ def check_status():
         gpio.output(led2_green, gpio.LOW)
         gpio.output(led2_red, gpio.HIGH)
 
-
-
     # Check the miniseed data files.
+    if check_datafiles():
+        gpio.output(led4_green, gpio.HIGH)
+        gpio.output(led4_red, gpio.LOW)
+    else:
+        gpio.output(led4_green, gpio.LOW)
+        gpio.output(led4_red, gpio.HIGH)
+
+
+def clear_led():
+    ''' Turn of all LEDs.
+    '''
+    gpio.output(led1_green, gpio.LOW)
+    gpio.output(led1_red, gpio.LOW)
+    gpio.output(led2_green, gpio.LOW)
+    gpio.output(led2_red, gpio.LOW)
+    gpio.output(led4_green, gpio.LOW)
+    gpio.output(led4_red, gpio.LOW)
+
+def signal_handler(signum, frame):
+    if signum == signal.SIGINT:
+        logger.info("Stopping on SIGINT.")
+        clear_led()
+        logger.info('Exiting program.')
+        sys.exit(0)
+    elif signum == signal.SIGTERM:
+        logger.info("Stopping on SIGTERM.")
+        clear_led()
+        logger.info('Exiting program.')
+        sys.exit(1)
+    elif signum == signal.SIGALRM:
+        logger.warning("Watchdog alarm: stopping the recorder.")
+        clear_led()
+        logger.warning('Exiting program.')
+        sys.exit(1)
+    else:
+        logger.info("Got unintended signal: %d.")
 
 
 if __name__ == '__main__':
@@ -174,6 +247,12 @@ if __name__ == '__main__':
     gpio.output(led2_red, gpio.LOW)
     gpio.output(led4_green, gpio.LOW)
     gpio.output(led4_red, gpio.LOW)
+
+    # Handle signals.
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(60)
 
     # Setup the threading events.
     stop_event = threading.Event()
