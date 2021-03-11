@@ -39,6 +39,9 @@ import RPi.GPIO as gpio
 import mss_record.core.recorder
 import mss_record.version
 
+led3_green = 7
+led3_red = 8
+
 class MultiProcessingLog(logging.Handler):
     def __init__(self, filename, maxBytes, backupCount):
         logging.Handler.__init__(self)
@@ -191,30 +194,41 @@ def validate_config(config, logger):
 if __name__ == '__main__':
     def signal_handler(signum, frame):
         if signum == signal.SIGINT:
-            logger.info("Stopping the recorder.")
+            logger.info("Stopping the recorder on SIGINT.")
             recorder.stop()
             logger.info('Exiting program.')
+            gpio.output(led3_green, gpio.LOW)
+            gpio.output(led3_red, gpio.HIGH)
             sys.exit(0)
+        elif signum == signal.SIGTERM:
+            logger.info("Stopping the recorder on SIGTERM.")
+            recorder.stop()
+            logger.info('Exiting program.')
+            gpio.output(led3_green, gpio.LOW)
+            gpio.output(led3_red, gpio.HIGH)
+            sys.exit(1)
         elif signum == signal.SIGALRM:
             logger.warning("Watchdog alarm: stopping the recorder.")
             recorder.stop()
             logger.warning('Exiting program.')
+            gpio.output(led3_green, gpio.LOW)
+            gpio.output(led3_red, gpio.HIGH)
             sys.exit(1)
         else:
             logger.info("Got unintended signal: %d.")
 
-
     # Handle signals.
     signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGALRM, signal_handler)
     signal.alarm(60)
 
     # Setup the status LED.
     gpio.setmode(gpio.BCM)
-    gpio.setup(7, gpio.OUT)
-    gpio.setup(8, gpio.OUT)
-    gpio.output(7, gpio.LOW)
-    gpio.output(8, gpio.HIGH)
+    gpio.setup(led3_green, gpio.OUT)
+    gpio.setup(led3_red, gpio.OUT)
+    gpio.output(led3_green, gpio.HIGH)
+    gpio.output(led3_red, gpio.LOW)
 
     # Specify the configuration file using argpars.
     parser = argparse.ArgumentParser(description = 'mss_record')
@@ -248,6 +262,8 @@ if __name__ == '__main__':
     if not valid_serial:
         logger.error("Error when reading the serial number. Please fix it.")
         time.sleep(0.5)
+        gpio.output(led3_green, gpio.LOW)
+        gpio.output(led3_red, gpio.HIGH)
         sys.exit(1)
 
     logger.info("Checking the configuration.")
@@ -257,6 +273,8 @@ if __name__ == '__main__':
         # Wait some time to ensure, that the messages are writeen to the log
         # file.
         time.sleep(0.5)
+        gpio.output(led3_green, gpio.LOW)
+        gpio.output(led3_red, gpio.HIGH)
         sys.exit(1)
 
     logger.info("Starting mss record with configuration: %s.", config)
@@ -273,6 +291,8 @@ if __name__ == '__main__':
     if not working_servers:
         logger.error("No working NTP servers found, exiting.")
         time.sleep(0.5)
+        gpio.output(led3_green, gpio.LOW)
+        gpio.output(led3_red, gpio.HIGH)
         sys.exit(1)
 
     # - access to destination folder for miniseed files
