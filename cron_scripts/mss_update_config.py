@@ -79,4 +79,3 @@ if __name__ == '__main__':
 
     if dali_files_downloaded:
         update_dali()
-
