@@ -1,0 +1,11 @@
+Source: python-mssrecord
+Maintainer: Stefan Mertl <stefan@mertl-research.at>
+Section: python
+Priority: optional
+Build-Depends: debhelper (>=7.4.3)
+Standards-Version: 3.9.1
+
+Package: python-mssrecord
+Architecture: all
+Section: misc
+Description: MacroSeismicSensor data logging software.

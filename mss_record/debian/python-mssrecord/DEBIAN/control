@@ -1,0 +1,8 @@
+Package: python-mssrecord
+Version: 0.0.7-1
+Architecture: all
+Maintainer: Stefan Mertl <stefan@mertl-research.at>
+Installed-Size: 69
+Section: misc
+Priority: optional
+Description: MacroSeismicSensor data logging software.
