@@ -36,4 +36,19 @@ MANIFEST
 # Ignore the egg installation folder.
 psysmon.egg-info/
 
+# build files
+*.deb
+*.buildinfo
+*.changes
+*.deb.sig
+
+# Signature files.
+*.json.sig
+
+# Release files.
+*.tar.gz
+
+# Python install files.
+mss_record.egg-info/
+
 
