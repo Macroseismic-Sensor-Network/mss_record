@@ -51,4 +51,9 @@ psysmon.egg-info/
 # Python install files.
 mss_record.egg-info/
 
+# Emacs backup and temp files.
+*~
+\#*\#
+.#*
+
 
