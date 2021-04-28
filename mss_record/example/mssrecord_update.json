@@ -1,8 +1,10 @@
 {
     "recorders": [
+                    "00026",
                     "99999"
     ],
     "filename":  [
-                    "python-mssrecord_0.0.3-1_all.deb"
+                    "python-mssrecord_0.0.6-1_all.deb",
+                    "mss-suite_1.2.0-1_all.deb"
     ]
 }
