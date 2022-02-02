@@ -1,5 +1,5 @@
 # Ignore the version file.
-mss_record/lib/mss_record/version.py
+/lib/mss_record/version.py
 
 # Ignore compiled python files.
 *.pyc
