@@ -1,1 +1,0 @@
-Adafruit-GPIO>=1.0.0
