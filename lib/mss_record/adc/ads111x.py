@@ -157,8 +157,8 @@ class ADS111x(object):
         self._device.write_then_readinto(bytearray([ADS111x_POINTER_CONVERSION]),
                                          self._readbuf,
                                          in_end = 2)
-        return self._conversion_value(self.read_buf[1],
-                                      self.read_buf[0])
+        return self._conversion_value(self._readbuf[1],
+                                      self._readbuf[0])
 
 
     def configure(self, mux, gain, data_rate, mode):
@@ -243,8 +243,8 @@ class ADS111x(object):
         self._device.write_then_readinto(bytearray([ADS111x_POINTER_CONVERSION]),
                                          self._readbuf,
                                          in_end = 2)
-        return self._conversion_value(self.read_buf[1],
-                                      self.read_buf[0])
+        return self._conversion_value(self._readbuf[1],
+                                      self._readbuf[0])
 
 
     def read_config(self):
@@ -253,7 +253,7 @@ class ADS111x(object):
         self._device.write_then_readinto(bytearray([ADS111x_POINTER_CONFIG]),
                                          self._readbuf,
                                          in_end = 2)
-        result = ((self.read_buf[0] & 0xFF) << 8) | (self.read_buf[1] & 0xFF)
+        result = ((self._readbuf[0] & 0xFF) << 8) | (self._readbuf[1] & 0xFF)
         return result
 
 
