@@ -93,14 +93,11 @@ ADS111x_CONFIG_COMP_QUE_DISABLE = 0x0003
 class ADS111x(object):
     """Base functionality for ADS1x15.py analog to digital converters."""
 
-    def __init__(self, address=ADS111x_DEFAULT_ADDRESS, i2c=None, **kwargs):
-        if i2c is None:
-            import board
-            import busio
-            i2c = busio.I2C(board.SCL, board.SDA)
+    def __init__(self, i2c_bus, address=ADS111x_DEFAULT_ADDRESS, **kwargs):
 
         # The ADC device on the I2C bus.
-        self._device = ada_busdev.I2CDevice(i2c, address)
+        self._device = ada_busdev.I2CDevice(i2c_bus,
+                                            address)
 
         # The i2c write buffer.
         self._writebuf = bytearray(3)
