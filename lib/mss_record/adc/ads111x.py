@@ -181,7 +181,7 @@ class ADS111x(object):
         cur_config |= ADS111x_CONFIG_COMP_QUE_DISABLE  # Disble comparator mode.
         # Send the config value to start the ADC conversion.
         # Explicitly break the 16-bit value down to a big endian pair of bytes.
-         self._writebuf = [ADS111x_POINTER_CONFIG,
+        self._writebuf = [ADS111x_POINTER_CONFIG,
                           (cur_config >> 8) & 0xFF,
                           cur_config & 0xFF]
         self._device.write(self._writebuf)
