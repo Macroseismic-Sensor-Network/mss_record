@@ -154,7 +154,7 @@ class ADS111x(object):
         # small offset to be sure (0.1 millisecond).
         time.sleep(1.0/data_rate+0.0001)
         # Retrieve the result.
-        self._device.write_then_readinto(ADS111x_POINTER_CONVERSION,
+        self._device.write_then_readinto(bytearray([ADS111x_POINTER_CONVERSION]),
                                          self._readbuf,
                                          in_end = 2)
         return self._conversion_value(self.read_buf[1],
@@ -240,7 +240,7 @@ class ADS111x(object):
         """
         # Retrieve the conversion register value, convert to a signed int, and
         # return it.
-        self._device.write_then_readinto(ADS111x_POINTER_CONVERSION,
+        self._device.write_then_readinto(bytearray([ADS111x_POINTER_CONVERSION]),
                                          self._readbuf,
                                          in_end = 2)
         return self._conversion_value(self.read_buf[1],
@@ -250,7 +250,7 @@ class ADS111x(object):
     def read_config(self):
         """ Read the configuration register.
         """
-        self._device.write_then_readinto(ADS111x_POINTER_CONFIG,
+        self._device.write_then_readinto(bytearray([ADS111x_POINTER_CONFIG]),
                                          self._readbuf,
                                          in_end = 2)
         result = ((self.read_buf[0] & 0xFF) << 8) | (self.read_buf[1] & 0xFF)
