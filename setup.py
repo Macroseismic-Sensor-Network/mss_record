@@ -56,5 +56,5 @@ setuptools.setup(name = 'mss_record',
                  packages          = ['mss_record',
                                       'mss_record.core',
                                       'mss_record.adc'],
-                 install_requires  = ['Adafruit-GPIO>=1.0.0'])
+                 install_requires  = ['Adafruit-Blinka>=8.12.0'])
 
