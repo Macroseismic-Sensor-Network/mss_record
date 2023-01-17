@@ -146,9 +146,9 @@ class ADS111x(object):
         config |= ADS111x_CONFIG_COMP_QUE_DISABLE  # Disble comparator mode.
         # Send the config value to start the ADC conversion.
         # Explicitly break the 16-bit value down to a big endian pair of bytes.
-        self._writebuf = [ADS111x_POINTER_CONFIG,
-                          (config >> 8) & 0xFF,
-                          config & 0xFF]
+        self._writebuf = bytearray([ADS111x_POINTER_CONFIG,
+                                    (config >> 8) & 0xFF,
+                                    config & 0xFF])
         self._device.write(self._writebuf)
         # Wait for the ADC sample to finish based on the sample rate plus a
         # small offset to be sure (0.1 millisecond).
@@ -178,9 +178,9 @@ class ADS111x(object):
         cur_config |= ADS111x_CONFIG_COMP_QUE_DISABLE  # Disble comparator mode.
         # Send the config value to start the ADC conversion.
         # Explicitly break the 16-bit value down to a big endian pair of bytes.
-        self._writebuf = [ADS111x_POINTER_CONFIG,
-                          (cur_config >> 8) & 0xFF,
-                          cur_config & 0xFF]
+        self._writebuf = bytearray([ADS111x_POINTER_CONFIG,
+                                    (cur_config >> 8) & 0xFF,
+                                    cur_config & 0xFF])
         self._device.write(self._writebuf)
 
         self._config = self.read_config()
@@ -199,22 +199,22 @@ class ADS111x(object):
         # Set the MSB in the high and low threshold.
         high_threshold = 0x8000
         low_threshold = 0x0
-        self._writebuf = [ADS111x_POINTER_HIGH_THRESHOLD,
-                          (high_threshold >> 8) & 0xFF,
-                          high_threshold & 0xFF]
+        self._writebuf = bytearray([ADS111x_POINTER_HIGH_THRESHOLD,
+                                    (high_threshold >> 8) & 0xFF,
+                                    high_threshold & 0xFF])
         self._device.write(self._writebuf)
-        self._writebuf = [ADS111x_POINTER_LOW_THRESHOLD,
-                          (low_threshold >> 8) & 0xFF,
-                          low_threshold & 0xFF]
+        self._writebuf = bytearray([ADS111x_POINTER_LOW_THRESHOLD,
+                                    (low_threshold >> 8) & 0xFF,
+                                    low_threshold & 0xFF])
         self._device.write(self._writebuf)
 
         # Set the comp_que in the config register to 00.
         cur_config = self._config
         cur_config &= ~(0x1)
         cur_config &= ~(0x1 << 1)
-        self._writebuf = [ADS111x_POINTER_CONFIG,
-                          (cur_config >> 8) & 0xFF,
-                          cur_config & 0xFF]
+        self._writebuf = bytearray([ADS111x_POINTER_CONFIG,
+                                    (cur_config >> 8) & 0xFF,
+                                    cur_config & 0xFF])
         self._device.write(self._writebuf)
         self._config = self.read_config()
         self._config &= ~(0x1 << 16)
@@ -228,9 +228,9 @@ class ADS111x(object):
         """Stop all continuous ADC conversions (either normal or difference mode).
         """
         config = ADS111x_CONFIG_DEFAULT
-        self._writebuf = [ADS111x_POINTER_CONFIG,
-                          (config >> 8) & 0xFF,
-                          config & 0xFF]
+        self._writebuf = bytearray([ADS111x_POINTER_CONFIG,
+                                    (config >> 8) & 0xFF,
+                                    config & 0xFF])
         self._device.write(self._writebuf)
 
 
