@@ -252,7 +252,7 @@ class ADS111x(object):
         """
         self._device.write_then_readinto(ADS111x_POINTER_CONFIG,
                                          self._readbuf,
-                                         2)
+                                         in_end = 2)
         result = ((self.read_buf[0] & 0xFF) << 8) | (self.read_buf[1] & 0xFF)
         return result
 
