@@ -24,11 +24,14 @@ import logging
 import multiprocessing
 import time
 
+import board
+import busio
 import numpy as np
 import obspy
 import RPi.GPIO as gpio
 
-import mss_record.adc.ads111x
+
+import mss_record.adc.ads111x as mss_ads111x
 
 
 class Channel:
@@ -61,7 +64,12 @@ class Channel:
         self.gain = gain
 
         # The ADC device.
-        self.adc = mss_record.adc.ads111x.ADS1114(address = self.adc_address)
+        self.i2c_bus = busio.I2C(board.SCL, board.SDA)
+        try:
+            self.adc = mss_ads111x.ADS1114(i2c_bus = self.i2c_bus,
+                                           address = self.adc_address)
+        except Exception:
+            self.adc = None
 
         # The multiprocessing queue used to get the ADC data from a subprocess.
         self.data_queue = data_queue
@@ -82,21 +90,25 @@ class Channel:
         ''' Check, if the ADC is available.
         '''
         default_config = 0x8583
-        try:
-            # Write the default configuration to the ADC.
-            self.adc.stop_adc()
-            # Read the written configuration from the ADC.
-            adc_config = self.adc.read_config()
-        except IOError:
-            self.logger.warning("No response from ADC at address %s.", hex(self.adc_address))
-            return False
+        ret_val = False
+        if self.adc is not None:
+            try:
+                # Write the default configuration to the ADC.
+                self.adc.stop_adc()
+                # Read the written configuration from the ADC.
+                adc_config = self.adc.read_config()
+            except IOError:
+                self.logger.warning("No response from ADC at address %s.", hex(self.adc_address))
 
-        if adc_config == default_config:
-            self.logger.info("Got valid response from ADC at address %s.", hex(self.adc_address))
-            return True
+            if adc_config == default_config:
+                self.logger.info("Got valid response from ADC at address %s.", hex(self.adc_address))
+                ret_val = True
+            else:
+                self.logger.warning("Got an invalid response from ADC at address %s: %s", hex(self.adc_address), hex(adc_config))
         else:
-            self.logger.warning("Got an invalid response from ADC at address %s: %s", hex(self.adc_address), hex(adc_config))
-            return False
+            self.logger.warning("No ADC found at address %s.", hex(self.adc_address))
+
+        return ret_val
 
 
     def start_adc(self):
@@ -112,14 +124,14 @@ class Channel:
         # Extract the data_rate information.
         adc_dr = adc_config & 0xE0
         self.logger.debug("adc_dr: %s.", hex(adc_dr))
-        if (adc_dr != mss_record.adc.ads111x.ADS111x_CONFIG_DR[self.sps]):
+        if (adc_dr != mss_ads111x.ADS111x_CONFIG_DR[self.sps]):
             self.logger.error("The samplingrate has not been set.")
             return False
 
         # Extract the pga information.
         adc_pga = adc_config & 0xE00
         self.logger.debug("adc_pga: %s.", hex(adc_pga))
-        if (adc_pga != mss_record.adc.ads111x.ADS111x_CONFIG_GAIN[self.gain]):
+        if (adc_pga != mss_ads111x.ADS111x_CONFIG_GAIN[self.gain]):
             self.logger.error("The pga gain has not been set.")
             return False
 

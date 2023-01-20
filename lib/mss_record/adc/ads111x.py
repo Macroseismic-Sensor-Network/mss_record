@@ -36,6 +36,8 @@
 
 import time
 
+import adafruit_bus_device.i2c_device as ada_busdev
+
 
 # Register and other configuration values:
 ADS111x_DEFAULT_ADDRESS        = 0x48
@@ -91,11 +93,19 @@ ADS111x_CONFIG_COMP_QUE_DISABLE = 0x0003
 class ADS111x(object):
     """Base functionality for ADS1x15.py analog to digital converters."""
 
-    def __init__(self, address=ADS111x_DEFAULT_ADDRESS, i2c=None, **kwargs):
-        if i2c is None:
-            import Adafruit_GPIO.I2C as I2C
-            i2c = I2C
-        self._device = i2c.get_i2c_device(address, **kwargs)
+    def __init__(self, i2c_bus, address=ADS111x_DEFAULT_ADDRESS, **kwargs):
+
+        # The ADC device on the I2C bus.
+        self._device = ada_busdev.I2CDevice(i2c_bus,
+                                            address)
+
+        # The i2c write buffer.
+        self._writebuf = bytearray(3)
+
+        # The i2c read buffer.
+        self._readbuf = bytearray(2)
+
+        # The ADC default configuration.
         self._config = ADS111x_CONFIG_DEFAULT
 
 
@@ -136,13 +146,19 @@ class ADS111x(object):
         config |= ADS111x_CONFIG_COMP_QUE_DISABLE  # Disble comparator mode.
         # Send the config value to start the ADC conversion.
         # Explicitly break the 16-bit value down to a big endian pair of bytes.
-        self._device.writeList(ADS111x_POINTER_CONFIG, [(config >> 8) & 0xFF, config & 0xFF])
+        self._writebuf = bytearray([ADS111x_POINTER_CONFIG,
+                                    (config >> 8) & 0xFF,
+                                    config & 0xFF])
+        self._device.write(self._writebuf)
         # Wait for the ADC sample to finish based on the sample rate plus a
         # small offset to be sure (0.1 millisecond).
         time.sleep(1.0/data_rate+0.0001)
         # Retrieve the result.
-        result = self._device.readList(ADS111x_POINTER_CONVERSION, 2)
-        return self._conversion_value(result[1], result[0])
+        self._device.write_then_readinto(bytearray([ADS111x_POINTER_CONVERSION]),
+                                         self._readbuf,
+                                         in_end = 2)
+        return self._conversion_value(self._readbuf[1],
+                                      self._readbuf[0])
 
 
     def configure(self, mux, gain, data_rate, mode):
@@ -162,7 +178,10 @@ class ADS111x(object):
         cur_config |= ADS111x_CONFIG_COMP_QUE_DISABLE  # Disble comparator mode.
         # Send the config value to start the ADC conversion.
         # Explicitly break the 16-bit value down to a big endian pair of bytes.
-        self._device.writeList(ADS111x_POINTER_CONFIG, [(cur_config >> 8) & 0xFF, cur_config & 0xFF])
+        self._writebuf = bytearray([ADS111x_POINTER_CONFIG,
+                                    (cur_config >> 8) & 0xFF,
+                                    cur_config & 0xFF])
+        self._device.write(self._writebuf)
 
         self._config = self.read_config()
         # Clear the OS bit.
@@ -180,14 +199,23 @@ class ADS111x(object):
         # Set the MSB in the high and low threshold.
         high_threshold = 0x8000
         low_threshold = 0x0
-        self._device.writeList(ADS111x_POINTER_HIGH_THRESHOLD, [(high_threshold >> 8) & 0xFF, high_threshold & 0xFF])
-        self._device.writeList(ADS111x_POINTER_LOW_THRESHOLD, [(low_threshold >> 8) & 0xFF, low_threshold & 0xFF])
+        self._writebuf = bytearray([ADS111x_POINTER_HIGH_THRESHOLD,
+                                    (high_threshold >> 8) & 0xFF,
+                                    high_threshold & 0xFF])
+        self._device.write(self._writebuf)
+        self._writebuf = bytearray([ADS111x_POINTER_LOW_THRESHOLD,
+                                    (low_threshold >> 8) & 0xFF,
+                                    low_threshold & 0xFF])
+        self._device.write(self._writebuf)
 
         # Set the comp_que in the config register to 00.
         cur_config = self._config
         cur_config &= ~(0x1)
         cur_config &= ~(0x1 << 1)
-        self._device.writeList(ADS111x_POINTER_CONFIG, [(cur_config >> 8) & 0xFF, cur_config & 0xFF])
+        self._writebuf = bytearray([ADS111x_POINTER_CONFIG,
+                                    (cur_config >> 8) & 0xFF,
+                                    cur_config & 0xFF])
+        self._device.write(self._writebuf)
         self._config = self.read_config()
         self._config &= ~(0x1 << 16)
         if (self._config & 0x7FFF) == (cur_config & 0x7FFF):
@@ -196,12 +224,14 @@ class ADS111x(object):
             return False
 
 
-
     def stop_adc(self):
         """Stop all continuous ADC conversions (either normal or difference mode).
         """
         config = ADS111x_CONFIG_DEFAULT
-        self._device.writeList(ADS111x_POINTER_CONFIG, [(config >> 8) & 0xFF, config & 0xFF])
+        self._writebuf = bytearray([ADS111x_POINTER_CONFIG,
+                                    (config >> 8) & 0xFF,
+                                    config & 0xFF])
+        self._device.write(self._writebuf)
 
 
     def get_last_result(self):
@@ -210,15 +240,20 @@ class ADS111x(object):
         """
         # Retrieve the conversion register value, convert to a signed int, and
         # return it.
-        result = self._device.readList(ADS111x_POINTER_CONVERSION, 2)
-        return self._conversion_value(result[1], result[0])
+        self._device.write_then_readinto(bytearray([ADS111x_POINTER_CONVERSION]),
+                                         self._readbuf,
+                                         in_end = 2)
+        return self._conversion_value(self._readbuf[1],
+                                      self._readbuf[0])
 
 
     def read_config(self):
         """ Read the configuration register.
         """
-        result = self._device.readList(ADS111x_POINTER_CONFIG, 2)
-        result = ((result[0] & 0xFF) << 8) | (result[1] & 0xFF)
+        self._device.write_then_readinto(bytearray([ADS111x_POINTER_CONFIG]),
+                                         self._readbuf,
+                                         in_end = 2)
+        result = ((self._readbuf[0] & 0xFF) << 8) | (self._readbuf[1] & 0xFF)
         return result
 
 
