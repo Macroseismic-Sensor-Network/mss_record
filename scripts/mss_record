@@ -41,6 +41,7 @@ import mss_record.version
 
 led3_green = 7
 led3_red = 8
+use_status_leds = False
 
 class MultiProcessingLog(logging.Handler):
     def __init__(self, filename, maxBytes, backupCount):
@@ -120,6 +121,9 @@ def load_configuration(filename):
     parser.read(filename)
 
     config = {}
+    config['pcb'] = {}
+    config['pcb']['pcb_version'] = int(parser.get('pcb', 'pcb_version').strip())
+
     config['log'] = {}
     config['log']['dir'] = parser.get('log', 'log_dir').strip()
     config['log']['filename'] = parser.get('log', 'log_filename').strip()
@@ -138,8 +142,7 @@ def load_configuration(filename):
     config['station']['network'] = 'XX'
     config['station']['station_code'] = ''
     config['station']['location'] = '00'
-
-
+    
     return config
 
 
@@ -197,22 +200,25 @@ if __name__ == '__main__':
             logger.info("Stopping the recorder on SIGINT.")
             recorder.stop()
             logger.info('Exiting program.')
-            gpio.output(led3_green, gpio.LOW)
-            gpio.output(led3_red, gpio.HIGH)
+            if use_status_leds:
+                gpio.output(led3_green, gpio.LOW)
+                gpio.output(led3_red, gpio.HIGH)
             sys.exit(0)
         elif signum == signal.SIGTERM:
             logger.info("Stopping the recorder on SIGTERM.")
             recorder.stop()
             logger.info('Exiting program.')
-            gpio.output(led3_green, gpio.LOW)
-            gpio.output(led3_red, gpio.HIGH)
+            if use_status_leds:
+                gpio.output(led3_green, gpio.LOW)
+                gpio.output(led3_red, gpio.HIGH)
             sys.exit(1)
         elif signum == signal.SIGALRM:
             logger.warning("Watchdog alarm: stopping the recorder.")
             recorder.stop()
             logger.warning('Exiting program.')
-            gpio.output(led3_green, gpio.LOW)
-            gpio.output(led3_red, gpio.HIGH)
+            if use_status_leds:
+                gpio.output(led3_green, gpio.LOW)
+                gpio.output(led3_red, gpio.HIGH)
             sys.exit(1)
         else:
             logger.info("Got unintended signal: %d.")
@@ -222,13 +228,6 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGALRM, signal_handler)
     signal.alarm(60)
-
-    # Setup the status LED.
-    gpio.setmode(gpio.BCM)
-    gpio.setup(led3_green, gpio.OUT)
-    gpio.setup(led3_red, gpio.OUT)
-    gpio.output(led3_green, gpio.HIGH)
-    gpio.output(led3_red, gpio.LOW)
 
     # Specify the configuration file using argpars.
     parser = argparse.ArgumentParser(description = 'mss_record')
@@ -256,14 +255,30 @@ if __name__ == '__main__':
     logger.info("mss_record version %s", mss_record.__version__)
     logger.info("mss_record git_version: %s", mss_record.version.__git_version__)
 
+    # Check for the PCB version to setup the LED configuration.
+    pcb_version = config['pcb']['pcb_version']
+    if pcb_version == 1:
+        use_status_leds = False
+    elif pcb_version == 2:
+        use_status_leds = True
+
+    if use_status_leds:
+        # Setup the status LED.
+        gpio.setmode(gpio.BCM)
+        gpio.setup(led3_green, gpio.OUT)
+        gpio.setup(led3_red, gpio.OUT)
+        gpio.output(led3_green, gpio.HIGH)
+        gpio.output(led3_red, gpio.LOW)
+
     # Get the serial number.
     logger.info("Getting the serial number.")
     valid_serial = get_serial(config, logger)
     if not valid_serial:
         logger.error("Error when reading the serial number. Please fix it.")
         time.sleep(0.5)
-        gpio.output(led3_green, gpio.LOW)
-        gpio.output(led3_red, gpio.HIGH)
+        if use_status_leds:
+            gpio.output(led3_green, gpio.LOW)
+            gpio.output(led3_red, gpio.HIGH)
         sys.exit(1)
 
     logger.info("Checking the configuration.")
@@ -273,8 +288,9 @@ if __name__ == '__main__':
         # Wait some time to ensure, that the messages are writeen to the log
         # file.
         time.sleep(0.5)
-        gpio.output(led3_green, gpio.LOW)
-        gpio.output(led3_red, gpio.HIGH)
+        if use_status_leds:
+            gpio.output(led3_green, gpio.LOW)
+            gpio.output(led3_red, gpio.HIGH)
         sys.exit(1)
 
     logger.info("Starting mss record with configuration: %s.", config)
@@ -291,8 +307,9 @@ if __name__ == '__main__':
     if not working_servers:
         logger.error("No working NTP servers found, exiting.")
         time.sleep(0.5)
-        gpio.output(led3_green, gpio.LOW)
-        gpio.output(led3_red, gpio.HIGH)
+        if use_status_leds:
+            gpio.output(led3_green, gpio.LOW)
+            gpio.output(led3_red, gpio.HIGH)
         sys.exit(1)
 
     # - access to destination folder for miniseed files
