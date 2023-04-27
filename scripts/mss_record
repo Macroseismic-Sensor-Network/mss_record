@@ -259,8 +259,10 @@ if __name__ == '__main__':
     pcb_version = config['pcb']['pcb_version']
     if pcb_version == 1:
         use_status_leds = False
+        logger.info("Disabling the status LEDs.")
     elif pcb_version == 2:
         use_status_leds = True
+        logger.info("Enablig the status LEDs.")
 
     if use_status_leds:
         # Setup the status LED.
